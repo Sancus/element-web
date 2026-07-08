@@ -230,7 +230,7 @@ export default class ScrollPanel extends React.Component<IProps> {
         this.updatePreventShrinking();
         this.props.onScroll?.(ev);
         // noinspection JSIgnoredPromiseFromCall
-        this.checkFillState();
+        void this.checkFillState();
     };
 
     private onResize = (): void => {
@@ -250,9 +250,9 @@ export default class ScrollPanel extends React.Component<IProps> {
         }
         // We don't care if these two conditions race - they're different trees.
         // noinspection JSIgnoredPromiseFromCall
-        this.restoreSavedScrollState();
+        void this.restoreSavedScrollState();
         // noinspection JSIgnoredPromiseFromCall
-        this.checkFillState(0, isFromPropsUpdate);
+        void this.checkFillState(0, isFromPropsUpdate);
     };
 
     // return true if the content is fully scrolled down right now; else false.
@@ -409,7 +409,7 @@ export default class ScrollPanel extends React.Component<IProps> {
             this.fillRequestWhileRunning = false;
             this.pendingFillDueToPropsUpdate = false;
             // noinspection ES6MissingAwait
-            this.checkFillState(0, refillDueToPropsUpdate);
+            void this.checkFillState(0, refillDueToPropsUpdate);
         }
     };
 

@@ -273,7 +273,7 @@ export class WidgetMessaging extends TypedEventEmitter<WidgetMessagingEvent, Wid
     }
 
     private onThemeChange = (theme: string): void => {
-        this.widgetApi?.updateTheme({ name: theme });
+        void this.widgetApi?.updateTheme({ name: theme });
     };
 
     private onOpenModal = async (ev: CustomEvent<IModalWidgetOpenRequest>): Promise<void> => {
@@ -440,7 +440,9 @@ export class WidgetMessaging extends TypedEventEmitter<WidgetMessagingEvent, Wid
                     if (!room) return;
 
                     // noinspection JSIgnoredPromiseFromCall
-                    IntegrationManagers.sharedInstance()?.getPrimaryManager()?.open(room, `type_${integType}`, integId);
+                    void IntegrationManagers.sharedInstance()
+                        ?.getPrimaryManager()
+                        ?.open(room, `type_${integType}`, integId);
                 },
             );
         }
@@ -525,7 +527,7 @@ export class WidgetMessaging extends TypedEventEmitter<WidgetMessagingEvent, Wid
     }
 
     private onEvent = (ev: MatrixEvent): void => {
-        this.client.decryptEventIfNeeded(ev);
+        void this.client.decryptEventIfNeeded(ev);
         this.feedEvent(ev);
     };
 

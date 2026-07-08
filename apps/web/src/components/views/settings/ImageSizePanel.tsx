@@ -36,7 +36,7 @@ export default class ImageSizePanel extends React.Component<EmptyObject, IState>
         this.setState({ size: newSize });
 
         // noinspection JSIgnoredPromiseFromCall
-        SettingsStore.setValue("Images.size", null, SettingLevel.ACCOUNT, newSize);
+        void SettingsStore.setValue("Images.size", null, SettingLevel.ACCOUNT, newSize);
     };
 
     public render(): React.ReactNode {

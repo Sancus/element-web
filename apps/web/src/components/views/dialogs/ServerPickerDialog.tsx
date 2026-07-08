@@ -158,7 +158,7 @@ export default class ServerPickerDialog extends React.PureComponent<IProps, ISta
 
         if (!valid) {
             this.fieldRef.current?.focus();
-            this.fieldRef.current?.validate({ allowEmpty: false, focused: true });
+            await this.fieldRef.current?.validate({ allowEmpty: false, focused: true });
             return;
         }
 

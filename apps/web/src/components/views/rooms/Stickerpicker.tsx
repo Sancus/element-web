@@ -328,7 +328,7 @@ export default class Stickerpicker extends React.PureComponent<IProps, IState> {
      */
     private launchManageIntegrations = (): void => {
         // noinspection JSIgnoredPromiseFromCall
-        IntegrationManagers.sharedInstance()
+        void IntegrationManagers.sharedInstance()
             ?.getPrimaryManager()
             ?.open(this.props.room, `type_${WidgetType.STICKERPICKER.preferred}`, this.state.widgetId ?? undefined);
     };

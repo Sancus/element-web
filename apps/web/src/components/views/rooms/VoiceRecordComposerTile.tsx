@@ -133,7 +133,7 @@ export default class VoiceRecordComposerTile extends React.PureComponent<IProps,
                 });
             }
 
-            doMaybeLocalRoomAction(
+            void doMaybeLocalRoomAction(
                 this.props.room.roomId,
                 (actualRoomId: string) => MatrixClientPeg.safeGet().sendMessage(actualRoomId, content),
                 this.props.room.client,
@@ -205,7 +205,7 @@ export default class VoiceRecordComposerTile extends React.PureComponent<IProps,
             accessError();
 
             // noinspection ES6MissingAwait - if this goes wrong we don't want it to affect the call stack
-            VoiceRecordingStore.instance.disposeRecording(this.voiceRecordingId);
+            void VoiceRecordingStore.instance.disposeRecording(this.voiceRecordingId);
         }
     };
 

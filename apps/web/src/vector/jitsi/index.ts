@@ -549,4 +549,4 @@ const updateParticipants = (): void => {
 };
 
 const onLog = ({ logLevel, args }: LogEvent): void =>
-    (parent as unknown as typeof global).mx_rage_logger?.log(logLevel, ...args);
+    (parent as unknown as typeof global).mx_rage_logger?.log(logLevel, args);

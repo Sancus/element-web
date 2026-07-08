@@ -139,7 +139,7 @@ function safeCounterpartTranslate(text: string, variables?: IVariables): { trans
 /**
  * The value a variable or tag can take for a translation interpolation.
  */
-type SubstitutionValue = number | string | React.ReactNode | ((sub: string) => React.ReactNode);
+type SubstitutionValue = number | string | Awaited<React.ReactNode> | ((sub: string) => Awaited<React.ReactNode>);
 
 // Variables that are guaranteed to only contain primitive (string-safe) values
 export interface StringVariables {

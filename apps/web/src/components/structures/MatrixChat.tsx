@@ -328,7 +328,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
             // When the session loads it'll be detected as soft logged out and a dispatch
             // will be sent out to say that, triggering this MatrixChat to show the soft
             // logout page.
-            Lifecycle.loadSession({ abortSignal: this.loadSessionAbortController.signal });
+            await Lifecycle.loadSession({ abortSignal: this.loadSessionAbortController.signal });
             return;
         }
 
@@ -455,12 +455,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
         this.setState({ pendingInitialSync: false });
     }
 
-    public setState<K extends keyof IState>(
-        state:
-            | ((prevState: Readonly<IState>, props: Readonly<IProps>) => Pick<IState, K> | IState | null)
-            | (Pick<IState, K> | IState | null),
-        callback?: () => void,
-    ): void {
+    public setState<K extends keyof IState>(state: Pick<IState, K> | IState | null, callback?: () => void): void {
         if (state && "view" in state) {
             logger.debug(`MatrixChat: Queuing change of view from ${Views[this.state.view]} to ${Views[state.view]}`);
         }
@@ -484,9 +479,9 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
         this.fontWatcher = new FontWatcher();
         this.themeWatcher.start();
         this.themeWatcher.on(ThemeWatcherEvent.Change, setTheme);
-        this.fontWatcher.start();
+        void this.fontWatcher.start();
 
-        initSentry(SdkConfig.get("sentry"));
+        void initSentry(SdkConfig.get("sentry"));
         window.addEventListener("resize", this.onWindowResized);
 
         // Once we start loading the MatrixClient, we can't stop, even if MatrixChat gets unmounted (as it does
@@ -691,15 +686,15 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
                 break;
             case "logout":
                 this.stores.legacyCallHandler.hangupAllCalls();
-                Promise.all([...CallStore.instance.connectedCalls].map((call) => call.disconnect())).finally(() =>
+                void Promise.all([...CallStore.instance.connectedCalls].map((call) => call.disconnect())).finally(() =>
                     Lifecycle.logout(),
                 );
                 break;
             case "require_registration":
-                startAnyRegistrationFlow(payload as any);
+                void startAnyRegistrationFlow(payload as any);
                 break;
             case "start_mobile_registration":
-                this.startRegistration(payload.params || {}, true);
+                void this.startRegistration(payload.params || {}, true);
                 break;
             case "start_registration":
                 if (Lifecycle.isSoftLogout()) {
@@ -710,7 +705,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
                 if (payload.screenAfterLogin) {
                     this.screenAfterLogin = payload.screenAfterLogin;
                 }
-                this.startRegistration(payload.params || {});
+                void this.startRegistration(payload.params || {});
                 break;
             case "start_login":
                 if (Lifecycle.isSoftLogout()) {
@@ -731,7 +726,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
                 }
                 break;
             case "start_chat":
-                createRoom(MatrixClientPeg.safeGet(), {
+                void createRoom(MatrixClientPeg.safeGet(), {
                     dmUserId: payload.user_id,
                 });
                 break;
@@ -742,7 +737,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
                 this.forgetRoom(payload.room_id);
                 break;
             case "copy_room":
-                this.copyRoom(payload.room_id);
+                void this.copyRoom(payload.room_id);
                 break;
             case "view_user_info":
                 this.viewUser(payload.userId, payload.subAction);
@@ -754,7 +749,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
                     event.getRoomId() === this.state.currentRoomId
                 ) {
                     // re-view the current room so we can update alias/id in the URL properly
-                    this.viewRoom({
+                    void this.viewRoom({
                         action: Action.ViewRoom,
                         room_id: this.state.currentRoomId,
                         metricsTrigger: undefined, // room doesn't change
@@ -769,7 +764,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
                 // to them, supply the room alias. If both are supplied, the room ID will be ignored.
                 const promise = this.viewRoom(payload as ViewRoomPayload);
                 if (payload.deferred_action) {
-                    promise.then(() => {
+                    void promise.then(() => {
                         dis.dispatch(payload.deferred_action);
                     });
                 }
@@ -794,7 +789,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
                 break;
             }
             case Action.CreateRoom:
-                this.createRoom(payload.public, payload.defaultName, payload.type);
+                void this.createRoom(payload.public, payload.defaultName, payload.type);
 
                 // View the welcome or home page if we need something to look at
                 this.viewSomethingBehindModal();
@@ -907,11 +902,11 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
                 break;
             case Action.PseudonymousAnalyticsAccept:
                 hideAnalyticsToast();
-                SettingsStore.setValue("pseudonymousAnalyticsOptIn", null, SettingLevel.ACCOUNT, true);
+                void SettingsStore.setValue("pseudonymousAnalyticsOptIn", null, SettingLevel.ACCOUNT, true);
                 break;
             case Action.PseudonymousAnalyticsReject:
                 hideAnalyticsToast();
-                SettingsStore.setValue("pseudonymousAnalyticsOptIn", null, SettingLevel.ACCOUNT, false);
+                void SettingsStore.setValue("pseudonymousAnalyticsOptIn", null, SettingLevel.ACCOUNT, false);
                 break;
             case Action.ShowThread: {
                 const { rootEvent, initialEvent, highlighted, scrollIntoView, push } = payload as ShowThreadPayload;
@@ -1032,7 +1027,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
             // Only the critical ones for a typical UI are
             // This will start the decryption process for all events when a
             // user views a room
-            room.decryptAllEvents();
+            void room.decryptAllEvents();
             const theAlias = Rooms.getDisplayAliasForRoom(room);
             if (theAlias) {
                 presentedId = theAlias;
@@ -1126,7 +1121,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
     private viewUser(userId: string, subAction: string): void {
         // Wait for the first sync so that `getRoom` gives us a room object if it's
         // in the sync response
-        this.firstSyncPromise.promise.then(() => {
+        void this.firstSyncPromise.promise.then(() => {
             if (subAction === "chat") {
                 this.chatCreateOrReuse(userId);
                 return;
@@ -1139,7 +1134,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
 
     private viewShare(format: ShareFormat, msg: string): void {
         // Wait for the first sync so we can present possible rooms to share into
-        this.firstSyncPromise.promise.then(() => {
+        void this.firstSyncPromise.promise.then(() => {
             this.notifyNewScreen("share");
             let rawEvent;
             switch (format) {
@@ -1198,7 +1193,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
 
         const [shouldCreate, opts] = await modal.finished;
         if (shouldCreate) {
-            createRoom(MatrixClientPeg.safeGet(), opts!);
+            await createRoom(MatrixClientPeg.safeGet(), opts!);
         }
     }
 
@@ -1315,7 +1310,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
             danger: warnings.length > 0,
         });
 
-        finished.then(async ([shouldLeave]) => {
+        void finished.then(async ([shouldLeave]) => {
             if (shouldLeave) {
                 await leaveRoomBehaviour(cli, roomId);
 
@@ -1627,7 +1622,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
             }
 
             // Re-apply theme now that account data (including custom_themes) is loaded, otherwise we might end up with the wrong theme applied if the user has custom themes enabled
-            setTheme();
+            void setTheme();
 
             this.firstSyncComplete = true;
             this.firstSyncPromise.resolve();
@@ -1683,7 +1678,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
                 undefined,
                 true,
             );
-            finished.then(([confirmed]) => {
+            void finished.then(([confirmed]) => {
                 if (confirmed) {
                     const wnd = window.open(consentUri, "_blank")!;
                     wnd.opener = null;
@@ -2059,7 +2054,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
         const cli = MatrixClientPeg.get();
         if (!cli) return;
 
-        cli.sendEvent(roomId, event.getType() as keyof TimelineEvents, event.getContent()).then(() => {
+        void cli.sendEvent(roomId, event.getType() as keyof TimelineEvents, event.getContent()).then(() => {
             dis.dispatch({ action: "message_sent" });
         });
     }

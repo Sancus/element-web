@@ -18,7 +18,7 @@ export function jsxJoin(array: ReactNode[], joiner?: string | JSX.Element): JSX.
     return (
         <>
             {array.map((element, index) => (
-                <React.Fragment key={index}>
+                <React.Fragment key={element}>
                     {element}
                     {index === array.length - 1 ? null : joiner}
                 </React.Fragment>

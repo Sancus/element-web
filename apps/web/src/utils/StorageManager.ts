@@ -28,7 +28,7 @@ function error(msg: string, ...args: any[]): void {
 
 export function tryPersistStorage(): void {
     if (navigator.storage && navigator.storage.persist) {
-        navigator.storage.persist().then((persistent) => {
+        void navigator.storage.persist().then((persistent) => {
             logger.log("StorageManager: Persistent?", persistent);
         });
     } else if (document.requestStorageAccess) {

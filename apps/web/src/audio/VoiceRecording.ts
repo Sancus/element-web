@@ -192,7 +192,7 @@ export class VoiceRecording extends EventEmitter implements IDestroyable {
             if (this.recorder) this.recorder.close();
             if (this.recorderContext) {
                 // noinspection ES6MissingAwait - not important that we wait
-                this.recorderContext.close();
+                void this.recorderContext.close();
             }
 
             throw e; // rethrow so upstream can handle it
@@ -244,7 +244,7 @@ export class VoiceRecording extends EventEmitter implements IDestroyable {
         if (secondsLeft < 0) {
             // go over to make sure we definitely capture that last frame
             // noinspection JSIgnoredPromiseFromCall - we aren't concerned with it overlapping
-            this.stop();
+            void this.stop();
         } else if (secondsLeft <= TARGET_WARN_TIME_LEFT) {
             Singleflight.for(this, "ending_soon").do(() => {
                 this.emit(RecordingState.EndingSoon, { secondsLeft });
@@ -306,7 +306,7 @@ export class VoiceRecording extends EventEmitter implements IDestroyable {
 
     public destroy(): void {
         // noinspection JSIgnoredPromiseFromCall - not concerned about stop() being called async here
-        this.stop();
+        void this.stop();
         this.removeAllListeners();
         this.onDataAvailable = undefined;
         Singleflight.forgetAllFor(this);

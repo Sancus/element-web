@@ -74,7 +74,7 @@ const ID_SERVER_URL_KEY = "mx_is_url";
 dis.register((payload) => {
     if (payload.action === Action.TriggerLogout) {
         // noinspection JSIgnoredPromiseFromCall - we don't care if it fails
-        onLoggedOut();
+        void onLoggedOut();
     } else if (payload.action === Action.OverwriteLogin) {
         const typed = <OverwriteLoginPayload>payload;
         // Stop the current client before overwriting the login.
@@ -483,7 +483,7 @@ function onFailedDelegatedAuthLogin(description: string | ReactNode, tryAgain?: 
         button: _t("action|try_again"),
     });
 
-    finished.then(([shouldTryAgain]) => {
+    void finished.then(([shouldTryAgain]) => {
         // if we have a tryAgain callback, call it the primary 'try again' button was clicked in the dialog
         if (shouldTryAgain) tryAgain?.();
     });
@@ -968,7 +968,7 @@ export async function logout(): Promise<void> {
     }
 
     _isLoggingOut = true;
-    PlatformPeg.get()?.destroyPickleKey(client.getSafeUserId(), client.getDeviceId() ?? "");
+    await PlatformPeg.get()?.destroyPickleKey(client.getSafeUserId(), client.getDeviceId() ?? "");
 
     doLogout(client, oauth ?? null).then(onLoggedOut, (err) => {
         // Just throwing an error here is going to be very unhelpful
@@ -979,7 +979,7 @@ export async function logout(): Promise<void> {
         // tokens expire (and if you really think you've been compromised,
         // change your password).
         logger.warn("Failed to call logout API: token will not be invalidated", err);
-        onLoggedOut();
+        void onLoggedOut();
     });
 }
 
@@ -1075,7 +1075,7 @@ async function startMatrixClient(
     // Similarly, don't start sending presence updates until we've started
     // the client
     if (!SettingsStore.getValue("lowBandwidth")) {
-        Presence.start();
+        void Presence.start();
     }
 
     // Now that we have a MatrixClientPeg, update the Jitsi info
@@ -1193,8 +1193,8 @@ export function stopMatrixClient(unsetClient = true): void {
 
         if (unsetClient) {
             MatrixClientPeg.unset();
-            EventIndexPeg.unset();
-            cli.store.destroy();
+            void EventIndexPeg.unset();
+            void cli.store.destroy();
         }
     }
 }

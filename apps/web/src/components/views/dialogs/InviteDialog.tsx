@@ -250,7 +250,7 @@ export default class InviteDialog extends React.PureComponent<Props, IInviteDial
         this.encryptionByDefault = privateShouldBeEncrypted(MatrixClientPeg.safeGet());
 
         if (this.props.initialText) {
-            this.updateSuggestions(this.props.initialText);
+            void this.updateSuggestions(this.props.initialText);
         }
     }
 
@@ -482,13 +482,13 @@ export default class InviteDialog extends React.PureComponent<Props, IInviteDial
                 return;
             }
 
-            SDKContextClass.instance.legacyCallHandler.startTransferToMatrixID(
+            void SDKContextClass.instance.legacyCallHandler.startTransferToMatrixID(
                 this.props.call,
                 targetIds[0],
                 this.state.consultFirst,
             );
         } else {
-            SDKContextClass.instance.legacyCallHandler.startTransferToPhoneNumber(
+            void SDKContextClass.instance.legacyCallHandler.startTransferToPhoneNumber(
                 this.props.call,
                 this.state.dialPadValue,
                 this.state.consultFirst,
@@ -647,7 +647,7 @@ export default class InviteDialog extends React.PureComponent<Props, IInviteDial
             clearTimeout(this.debounceTimer);
         }
         this.debounceTimer = window.setTimeout(() => {
-            this.updateSuggestions(term);
+            void this.updateSuggestions(term);
         }, 150); // 150ms debounce (human reaction time + some)
     };
 
@@ -1004,7 +1004,7 @@ export default class InviteDialog extends React.PureComponent<Props, IInviteDial
 
     private onDialFormSubmit = (ev: SyntheticEvent): void => {
         ev.preventDefault();
-        this.transferCall();
+        void this.transferCall();
     };
 
     private onDialChange = (ev: React.ChangeEvent<HTMLInputElement>): void => {

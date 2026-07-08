@@ -153,16 +153,12 @@ export default defineConfig({
         "typescript/restrict-template-expressions": "off",
         "typescript/no-redundant-type-constituents": "off",
         "typescript/no-useless-default-assignment": "off",
-        "typescript/no-floating-promises": "off",
-        "typescript/no-misused-spread": "off",
-        "no-extra-boolean-cast": "off",
         "react-perf/jsx-no-new-function-as-prop": "off",
         "react-perf/jsx-no-new-object-as-prop": "off",
         "react-perf/jsx-no-jsx-as-prop": "off",
         "jsx-a11y/prefer-tag-over-role": "off",
         "jsx-a11y/no-autofocus": "off",
         "react/no-children-prop": "off",
-        "jsx-a11y/no-noninteractive-tabindex": "off",
         "react-perf/jsx-no-new-array-as-prop": "off",
         "react/no-did-update-set-state": "off",
         "react/no-did-mount-set-state": "off",
@@ -170,8 +166,6 @@ export default defineConfig({
         "jsx-a11y/no-static-element-interactions": "off",
         "jsx-a11y/click-events-have-key-events": "off",
         "jsx-a11y/no-noninteractive-element-interactions": "off",
-        "react/no-array-index-key": "off",
-        "jsx-a11y/control-has-associated-label": "off",
         "jsx-a11y/role-supports-aria-props": "off",
         "jsx-a11y/media-has-caption": "off",
         "jsx-a11y/no-noninteractive-element-to-interactive-role": "off",
@@ -404,7 +398,7 @@ export default defineConfig({
         {
             files: [
                 "{packages,apps,modules}/*/src/**/*.{test,stories}.{ts,tsx}",
-                "{packages,apps,modules}/*/src/{tests,__mocks__}/*.{ts,tsx}",
+                "{packages,apps,modules}/*/src/{test,tests,__mocks__}/*.{ts,tsx}",
                 "{packages,apps,modules}/*/{test,playwright,e2e}/**/*",
                 "{packages,apps,modules}/*/playwright.config.ts",
                 "{packages,apps,modules}/*/.storybook/**/*",
@@ -441,7 +435,6 @@ export default defineConfig({
                 ],
                 "jsdoc/check-tag-names": "off",
 
-                "react/jsx-no-constructed-context-values": "off",
                 "jsx-a11y/interactive-supports-focus": "off",
                 "jsx-a11y/no-static-element-interactions": "off",
                 "react/no-array-index-key": "off",
@@ -453,6 +446,10 @@ export default defineConfig({
                 "no-new": "off",
                 "react/iframe-missing-sandbox": "off",
                 "promise/no-promise-in-callback": "off",
+
+                // Disable some react perf related rules in tests
+                "react/jsx-no-constructed-context-values": "off",
+
                 // This would be good to enable in the future
                 "typescript/await-thenable": "off",
 

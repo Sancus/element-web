@@ -85,7 +85,7 @@ export default class ExportE2eKeysDialog extends React.Component<IProps, IState>
         // Focus on the first invalid field, then re-validate,
         // which will result in the error tooltip being displayed for that field.
         invalidFields[0].focus();
-        invalidFields[0].validate({ allowEmpty: false, focused: true });
+        await invalidFields[0].validate({ allowEmpty: false, focused: true });
 
         return false;
     }

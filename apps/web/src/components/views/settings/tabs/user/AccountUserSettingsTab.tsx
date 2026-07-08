@@ -93,7 +93,7 @@ const AccountUserSettingsTab: React.FC<IProps> = ({ closeSettingsFn }) => {
     const cli = sdkContext.client!;
 
     useEffect(() => {
-        (async () => {
+        void (async () => {
             const capabilities = (await cli.getCapabilities()) ?? {};
             const changePasswordCap = capabilities["m.change_password"];
 
@@ -165,7 +165,7 @@ const AccountUserSettingsTab: React.FC<IProps> = ({ closeSettingsFn }) => {
 
     const onDeactivateClicked = useCallback((): void => {
         const { finished } = Modal.createDialog(DeactivateAccountDialog);
-        finished.then(([success]) => {
+        void finished.then(([success]) => {
             if (success) closeSettingsFn();
         });
     }, [closeSettingsFn]);

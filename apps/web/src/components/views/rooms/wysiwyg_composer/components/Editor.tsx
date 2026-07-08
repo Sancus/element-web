@@ -11,6 +11,7 @@ import React, { type CSSProperties, memo, type RefObject, type ReactNode } from 
 
 import { useIsExpanded } from "../hooks/useIsExpanded";
 import { useSelection } from "../hooks/useSelection";
+import { _t } from "../../../../../i18n";
 
 const HEIGHT_BREAKING_POINT = 24;
 
@@ -34,6 +35,7 @@ export const Editor = memo(function Editor({ disabled, placeholder, leftComponen
                     className={classNames("mx_WysiwygComposer_Editor_content", {
                         mx_WysiwygComposer_Editor_content_placeholder: Boolean(placeholder),
                     })}
+                    aria-label={_t("composer")}
                     style={{ "--placeholder": `"${placeholder}"` } as CSSProperties}
                     ref={ref}
                     contentEditable={!disabled}

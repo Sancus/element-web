@@ -73,7 +73,7 @@ export const DiscoverySettings: React.FC = () => {
                 if (payload.action === "id_server_changed") {
                     setIdServerName(abbreviateUrl(client.getIdentityServerUrl()));
 
-                    getThreepidState();
+                    void getThreepidState();
                 }
             },
             [client, getThreepidState],
@@ -81,7 +81,7 @@ export const DiscoverySettings: React.FC = () => {
     );
 
     useEffect(() => {
-        (async () => {
+        void (async () => {
             try {
                 await getThreepidState();
 

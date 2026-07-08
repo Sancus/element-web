@@ -50,7 +50,7 @@ export const EnterEmail: React.FC<EnterEmailProps> = ({
         }
 
         emailFieldRef.current?.focus();
-        emailFieldRef.current?.validate({ allowEmpty: false, focused: true });
+        await emailFieldRef.current?.validate({ allowEmpty: false, focused: true });
     };
 
     return (

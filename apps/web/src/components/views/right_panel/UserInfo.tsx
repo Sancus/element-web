@@ -132,7 +132,7 @@ export const useDevices = (userId: string): IDevice[] | undefined | null => {
                 setDevices(null);
             }
         }
-        downloadDeviceList();
+        void downloadDeviceList();
 
         // Handle being unmounted
         return () => {
@@ -150,11 +150,11 @@ export const useDevices = (userId: string): IDevice[] | undefined | null => {
         };
         const onDevicesUpdated = (users: string[]): void => {
             if (!users.includes(userId)) return;
-            updateDevices();
+            void updateDevices();
         };
         const onUserTrustStatusChanged = (_userId: string, trustLevel: UserVerificationStatus): void => {
             if (_userId !== userId) return;
-            updateDevices();
+            void updateDevices();
         };
         cli.on(CryptoEvent.DevicesUpdated, onDevicesUpdated);
         cli.on(CryptoEvent.UserTrustStatusChanged, onUserTrustStatusChanged);

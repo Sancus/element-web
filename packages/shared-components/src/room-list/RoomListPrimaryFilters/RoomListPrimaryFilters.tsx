@@ -96,9 +96,9 @@ export const RoomListPrimaryFilters = memo(function RoomListPrimaryFilters({
                 className={styles.list}
                 ref={ref}
             >
-                {visibleFilterIds.map((filterId, index) => (
+                {visibleFilterIds.map((filterId) => (
                     <ChatFilter
-                        key={`${filterId}-${index}`}
+                        key={filterId}
                         role="option"
                         selected={filterId === activeFilterId}
                         onClick={() => onToggleFilter(filterId)}

@@ -246,7 +246,7 @@ export class RoomListViewModel
         // Update roomsMap immediately before clearing VMs
         this.updateRoomsMap(this.roomsResult);
 
-        this.updateRoomListData();
+        void this.updateRoomListData();
     };
 
     /**
@@ -506,7 +506,7 @@ export class RoomListViewModel
         if (payload.action === Action.ActiveRoomChanged) {
             // When the active room changes, update the room list data to reflect the new selected room
             // Pass isRoomChange=true so sticky logic doesn't prevent the index from updating
-            this.updateRoomListData(true);
+            void this.updateRoomListData(true);
         } else if (payload.action === Action.ViewRoomDelta) {
             // Handle keyboard navigation shortcuts (Alt+ArrowUp/Down)
             // This was previously handled by useRoomListNavigation hook
@@ -528,7 +528,7 @@ export class RoomListViewModel
         for (const sectionHeaderVM of this.roomSectionHeaderViewModels.values()) {
             sectionHeaderVM.isExpanded = expand;
         }
-        this.updateRoomListData();
+        void this.updateRoomListData();
     }
 
     /**
@@ -610,14 +610,14 @@ export class RoomListViewModel
             // Space changed - get the last selected room for the new space to prevent flicker
             const lastSelectedRoom = SpaceStore.instance.getLastSelectedRoomIdForSpace(newSpaceId);
 
-            this.updateRoomListData(true, lastSelectedRoom);
+            void this.updateRoomListData(true, lastSelectedRoom);
             return;
         }
 
         this.updateRoomsMap(this.roomsResult);
 
         // Normal room list update (not a space change)
-        this.updateRoomListData();
+        void this.updateRoomListData();
     };
 
     private onListsLoaded = (): void => {
@@ -838,7 +838,7 @@ export class RoomListViewModel
         const filterKeys = this.activeFilter !== undefined ? [this.activeFilter] : undefined;
         this.roomsResult = RoomListStoreV3.instance.getSortedRoomsInActiveSpace(filterKeys);
         this.updateRoomsMap(this.roomsResult);
-        this.updateRoomListData(false, null, tag);
+        void this.updateRoomListData(false, null, tag);
         this.showToast("section_created");
     };
 
@@ -885,7 +885,7 @@ export class RoomListViewModel
         const filterKeys = this.activeFilter !== undefined ? [this.activeFilter] : undefined;
         this.roomsResult = RoomListStoreV3.instance.getSortedRoomsInActiveSpace(filterKeys);
         this.updateRoomsMap(this.roomsResult);
-        this.updateRoomListData(false, null, sourceTag);
+        void this.updateRoomListData(false, null, sourceTag);
     };
 
     public onSectionDragStart = (): void => {
@@ -894,7 +894,7 @@ export class RoomListViewModel
             this.savedExpansionStates.set(tag, sectionVM.isExpanded);
             sectionVM.isExpanded = false;
         }
-        this.updateRoomListData();
+        void this.updateRoomListData();
     };
 
     public onSectionDragEnd = (): void => {
@@ -903,7 +903,7 @@ export class RoomListViewModel
             if (sectionVM) sectionVM.isExpanded = expanded;
         }
         this.savedExpansionStates.clear();
-        this.updateRoomListData();
+        void this.updateRoomListData();
     };
 
     public changeRoomSection = (roomId: string, tag: string): void => {

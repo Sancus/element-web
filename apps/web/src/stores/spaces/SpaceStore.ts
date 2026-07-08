@@ -280,14 +280,14 @@ export class SpaceStoreClass extends AsyncStoreWithClient<EmptyObject> {
         this.emit(UPDATE_SUGGESTED_ROOMS, (this._suggestedRooms = []));
 
         if (cliSpace) {
-            this.loadSuggestedRooms(cliSpace);
+            void this.loadSuggestedRooms(cliSpace);
 
             // Load all members for the selected space and its subspaces,
             // so we can correctly show DMs we have with members of this space.
             SpaceStore.instance.traverseSpace(
                 space,
                 (roomId) => {
-                    this.matrixClient?.getRoom(roomId)?.loadMembersIfNeeded();
+                    void this.matrixClient?.getRoom(roomId)?.loadMembersIfNeeded();
                 },
                 false,
             );
@@ -1019,7 +1019,7 @@ export class SpaceStoreClass extends AsyncStoreWithClient<EmptyObject> {
                     target?.getMyMembership() !== KnownMembership.Join && // target not joined
                     ev.getPrevContent().suggested !== ev.getContent().suggested // suggested flag changed
                 ) {
-                    this.loadSuggestedRooms(room);
+                    void this.loadSuggestedRooms(room);
                 }
 
                 break;
@@ -1398,7 +1398,7 @@ export class SpaceStoreClass extends AsyncStoreWithClient<EmptyObject> {
         const changes = reorderLexicographically(currentOrders, fromIndex, toIndex);
 
         changes.forEach(({ index, order }) => {
-            this.setRootSpaceOrder(this.rootSpaces[index], order);
+            void this.setRootSpaceOrder(this.rootSpaces[index], order);
         });
 
         this.notifyIfOrderChanged();
@@ -1409,7 +1409,7 @@ export class SpaceStoreClass extends AsyncStoreWithClient<EmptyObject> {
 export default class SpaceStore {
     private static readonly internalInstance = (() => {
         const instance = new SpaceStoreClass();
-        instance.start();
+        void instance.start();
         return instance;
     })();
 
@@ -1422,7 +1422,7 @@ export default class SpaceStore {
      */
     public static testInstance(): SpaceStoreClass {
         const store = new SpaceStoreClass();
-        store.start();
+        void store.start();
         return store;
     }
 }

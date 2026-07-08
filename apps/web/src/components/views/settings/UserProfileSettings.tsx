@@ -128,7 +128,7 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
     const client = useMatrixClientContext();
 
     useEffect(() => {
-        (async () => {
+        void (async () => {
             try {
                 const mediaConfig = await client.getMediaConfig();
                 setMaxUploadSize(mediaConfig["m.upload.size"]);

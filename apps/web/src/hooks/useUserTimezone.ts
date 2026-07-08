@@ -59,7 +59,7 @@ export const useUserTimezone = (cli: MatrixClient, userId: string): { timezone: 
         if (supported !== true) {
             return;
         }
-        (async () => {
+        void (async () => {
             log.debug("Trying to fetch TZ for", userId);
             try {
                 const userProfile = await cli.getExtendedProfile(userId);

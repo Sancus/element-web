@@ -19,9 +19,9 @@ export class BackgroundAudio {
     private audioContext = createAudioContext();
     private sounds: Record<string, AudioBuffer> = {};
 
-    public async pickFormatAndPlay<F extends Array<keyof typeof formatMap>>(
+    public async pickFormatAndPlay(
         urlPrefix: string,
-        formats: F,
+        formats: Array<keyof typeof formatMap>,
         loop = false,
     ): Promise<AudioBufferSourceNode> {
         const format = this.pickFormat(...formats);
@@ -51,7 +51,7 @@ export class BackgroundAudio {
 
         await this.audioContext.resume();
         source.onended = () => {
-            this.audioContext.suspend();
+            void this.audioContext.suspend();
         };
 
         source.start();

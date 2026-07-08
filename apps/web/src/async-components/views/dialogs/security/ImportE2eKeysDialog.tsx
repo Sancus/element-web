@@ -88,7 +88,7 @@ export default class ImportE2eKeysDialog extends React.Component<IProps, IState>
         // noinspection JSIgnoredPromiseFromCall
         const file = this.file.current?.files?.[0];
         if (file) {
-            this.startImport(file, this.state.passphrase);
+            void this.startImport(file, this.state.passphrase);
         }
         return false;
     };

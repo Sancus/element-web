@@ -107,7 +107,7 @@ const CodeBlock: React.FC<Props> = ({ preNode }) => {
     }
 
     function highlightCodeRef(div: HTMLElement | null): void {
-        highlightCode(div);
+        void highlightCode(div);
     }
 
     let content = domToReact(preNode.children as DOMNode[]);

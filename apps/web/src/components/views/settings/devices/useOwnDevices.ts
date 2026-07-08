@@ -100,7 +100,7 @@ export const useOwnDevices = (): DevicesState => {
     const [error, setError] = useState<OwnDevicesError>();
 
     useEffect(() => {
-        matrixClient.doesServerSupportUnstableFeature("org.matrix.msc3881").then((hasSupport) => {
+        void matrixClient.doesServerSupportUnstableFeature("org.matrix.msc3881").then((hasSupport) => {
             setSupportsMSC3881(hasSupport);
         });
     }, [matrixClient]);
@@ -153,7 +153,7 @@ export const useOwnDevices = (): DevicesState => {
     }, [matrixClient]);
 
     useEffect(() => {
-        refreshDevices();
+        void refreshDevices();
     }, [refreshDevices]);
 
     useEffect(() => {
@@ -167,7 +167,7 @@ export const useOwnDevices = (): DevicesState => {
 
     useEventEmitter(matrixClient, CryptoEvent.DevicesUpdated, (users: string[]): void => {
         if (users.includes(userId)) {
-            refreshDevices();
+            void refreshDevices();
         }
     });
 

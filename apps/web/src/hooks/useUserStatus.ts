@@ -37,7 +37,7 @@ export function useUserStatus(userId: string | undefined): UserStatus | undefine
         setRawUserStatus(syncProfile["org.matrix.msc4426.status"]);
     });
     useEffect(() => {
-        (async () => {
+        void (async () => {
             if (!isEnabled) {
                 return;
             }

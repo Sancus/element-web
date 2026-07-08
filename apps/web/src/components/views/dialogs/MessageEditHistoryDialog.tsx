@@ -118,7 +118,7 @@ export default class MessageEditHistoryDialog extends React.PureComponent<IProps
     }
 
     public componentDidMount(): void {
-        this.loadMoreEdits();
+        void this.loadMoreEdits();
     }
 
     public componentWillUnmount(): void {

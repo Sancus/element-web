@@ -74,7 +74,7 @@ describe("leaveRoomBehaviour", () => {
             true,
         );
 
-    const expectDispatch = async <T extends ActionPayload>(payload: T) => {
+    const expectDispatch = async (payload: ActionPayload) => {
         const dispatcherSpy = vi.fn();
         const dispatcherRef = defaultDispatcher.register(dispatcherSpy);
         await sleep(0);

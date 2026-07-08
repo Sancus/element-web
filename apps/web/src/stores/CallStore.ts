@@ -32,7 +32,7 @@ export class CallStore extends AsyncStoreWithClient<EmptyObject> {
     public static get instance(): CallStore {
         if (!this._instance) {
             this._instance = new CallStore();
-            this._instance.start();
+            void this._instance.start();
         }
         return this._instance;
     }
@@ -136,7 +136,7 @@ export class CallStore extends AsyncStoreWithClient<EmptyObject> {
         this.emit(CallStoreEvent.ConnectedCalls, value);
 
         // The room IDs are persisted to settings so we can detect unclean disconnects
-        SettingsStore.setValue(
+        void SettingsStore.setValue(
             "activeCallRoomIds",
             null,
             SettingLevel.DEVICE,

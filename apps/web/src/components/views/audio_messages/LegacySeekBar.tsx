@@ -73,12 +73,12 @@ export default class LegacySeekBar extends React.PureComponent<IProps, IState> {
 
     public left(): void {
         // noinspection JSIgnoredPromiseFromCall
-        this.props.playback.skipTo(this.props.playback.timeSeconds - ARROW_SKIP_SECONDS);
+        void this.props.playback.skipTo(this.props.playback.timeSeconds - ARROW_SKIP_SECONDS);
     }
 
     public right(): void {
         // noinspection JSIgnoredPromiseFromCall
-        this.props.playback.skipTo(this.props.playback.timeSeconds + ARROW_SKIP_SECONDS);
+        void this.props.playback.skipTo(this.props.playback.timeSeconds + ARROW_SKIP_SECONDS);
     }
 
     private onChange = (ev: ChangeEvent<HTMLInputElement>): void => {
@@ -86,7 +86,7 @@ export default class LegacySeekBar extends React.PureComponent<IProps, IState> {
         // change the value on the component. We can use this as a reliable "skip to X" function.
         //
         // noinspection JSIgnoredPromiseFromCall
-        this.props.playback.skipTo(Number(ev.target.value) * this.props.playback.durationSeconds);
+        void this.props.playback.skipTo(Number(ev.target.value) * this.props.playback.durationSeconds);
     };
 
     private onMouseDown = (event: React.MouseEvent): void => {
