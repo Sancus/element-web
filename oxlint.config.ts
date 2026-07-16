@@ -149,10 +149,22 @@ export default defineConfig({
 
         // These would be nice to enable at some point
         "unicorn/prefer-set-has": "off",
+        "unicorn/prefer-string-slice": "off",
+        "unicorn/prefer-number-properties": "off",
+        "unicorn/prefer-at": "off",
         "unicorn/no-new-array": "off",
+        "unicorn/no-array-for-each": "off",
+        "unicorn/explicit-length-check": "off",
+        "unicorn/catch-error-name": "off",
+        "require-unicode-regexp": "off",
         "typescript/restrict-template-expressions": "off",
         "typescript/no-redundant-type-constituents": "off",
         "typescript/no-useless-default-assignment": "off",
+        "typescript/no-duplicate-type-constituents": "off",
+        "no-unused-vars": "off",
+        "eslint/no-unused-vars": "off",
+        "typescript/no-implied-eval": "off",
+        "promise/valid-params": "off",
         "react-perf/jsx-no-new-function-as-prop": "off",
         "react-perf/jsx-no-new-object-as-prop": "off",
         "react-perf/jsx-no-jsx-as-prop": "off",
@@ -165,6 +177,7 @@ export default defineConfig({
         "jsx-a11y/interactive-supports-focus": "off",
         "jsx-a11y/no-static-element-interactions": "off",
         "jsx-a11y/click-events-have-key-events": "off",
+        "vitest/no-conditional-tests": "off",
         "jsx-a11y/no-noninteractive-element-interactions": "off",
         "jsx-a11y/role-supports-aria-props": "off",
         "jsx-a11y/media-has-caption": "off",
@@ -452,6 +465,7 @@ export default defineConfig({
 
                 // This would be good to enable in the future
                 "typescript/await-thenable": "off",
+                "promise/no-callback-in-promise": "off",
 
                 // This rule requires strictNullChecks enabled
                 "typescript/no-unnecessary-boolean-literal-compare": "off",
