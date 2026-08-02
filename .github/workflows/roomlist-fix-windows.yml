@@ -1,0 +1,127 @@
+# Builds an unsigned, portable Windows Element Desktop carrying the room list scroll fix and
+# publishes it to a GitHub Release.
+#
+# This is deliberately separate from the upstream build_desktop_* workflows: those checkout
+# element-hq/element-web by name (so they ignore fork changes), depend on a prepare job, and sign
+# via eSigner. This one is self-contained and produces an unsigned portable zip.
+#
+# Native modules (matrix-seshat, used for encrypted search) are skipped. The app treats the module
+# as absent, so .hak/hakModules only has to exist. That avoids Rust/NASM/TCL toolchain setup.
+
+name: Room list fix - Windows build
+
+on:
+    workflow_dispatch:
+    push:
+        tags:
+            - "roomlist-fix-*"
+
+permissions:
+    contents: write # to create the release
+
+jobs:
+    build:
+        name: Build Windows x64
+        runs-on: windows-latest
+        steps:
+            # nx misbehaves with CRLF checkouts: https://github.com/nrwl/nx/issues/35828
+            - name: Configure git line endings
+              run: |
+                  git config --system core.autocrlf false
+                  git config --system core.eol lf
+
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v7
+              with:
+                  node-version-file: apps/desktop/.node-version
+                  cache: pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build web app
+              working-directory: apps/web
+              run: pnpm build
+              env:
+                  NX_DAEMON: "false"
+
+            - name: Stage web app into the desktop package
+              shell: bash
+              working-directory: apps/desktop
+              run: |
+                  set -euo pipefail
+                  rm -rf webapp webapp.asar
+                  cp -r ../web/webapp webapp
+
+                  # The app will not start without a config. Strip update_base_url so this build
+                  # never auto-updates itself back to official Element and silently drop the fix.
+                  node -e '
+                    const fs = require("fs");
+                    const config = JSON.parse(fs.readFileSync("element.io/release/config.json", "utf8"));
+                    delete config.update_base_url;
+                    fs.writeFileSync("webapp/config.json", JSON.stringify(config, null, 4));
+                  '
+
+                  # electron-builder maps .hak/hakModules to node_modules in the bundle.
+                  mkdir -p .hak/hakModules
+
+                  node -e 'require("@electron/asar").createPackage("webapp","webapp.asar").then(()=>console.log("packed webapp.asar"))'
+
+            - name: Build desktop package
+              working-directory: apps/desktop
+              run: |
+                  pnpm exec tsc
+                  node scripts/copy-res.ts
+                  pnpm exec electron-builder --win --x64 --dir --publish never
+
+            - name: Verify the fix is in the shipped bundle
+              shell: bash
+              working-directory: apps/desktop
+              run: |
+                  set -euo pipefail
+                  test -f dist/win-unpacked/Element.exe
+                  # The gated tooltip renders behind pointer-over state; the unfixed build has no
+                  # mouse handlers on this element at all.
+                  node -e '
+                    const asar = require("@electron/asar");
+                    const files = asar.listPackage("dist/win-unpacked/resources/webapp.asar");
+                    const bundles = files.filter((f) => f.endsWith(".js"));
+                    const hit = bundles.some((f) => {
+                      const buf = asar.extractFile("dist/win-unpacked/resources/webapp.asar", f.replace(/^[\\/]/, ""));
+                      return buf.includes("mx_RoomAvatarView") && buf.includes("onMouseLeave");
+                    });
+                    if (!hit) throw new Error("gated avatar tooltip not found in webapp.asar");
+                    console.log("fix verified in webapp.asar");
+                  '
+
+            - name: Package portable zip
+              shell: bash
+              working-directory: apps/desktop
+              run: |
+                  set -euo pipefail
+                  VERSION="${GITHUB_REF_NAME}"
+                  [ "${GITHUB_REF_TYPE}" = "tag" ] || VERSION="dev-${GITHUB_SHA::7}"
+                  ZIP_NAME="element-desktop-${VERSION}-win-x64.zip"
+                  echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
+                  cd dist/win-unpacked
+                  7z a -tzip "../../../../${ZIP_NAME}" . >/dev/null
+                  echo "packaged ${ZIP_NAME}"
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: windows-x64-portable
+                  path: ${{ env.ZIP_NAME }}
+                  retention-days: 14
+
+            - name: Publish release
+              if: github.ref_type == 'tag'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create "${{ github.ref_name }}" "${{ env.ZIP_NAME }}" `
+                    --title "Room list scroll fix - ${{ github.ref_name }}" `
+                    --notes "Unofficial build of Element Desktop with the room list scroll fix. Unsigned: Windows SmartScreen will warn on first run. Auto-update is disabled. Run with ``--profile roomlist-fix`` to keep it isolated from an existing Element install."
