@@ -451,6 +451,7 @@ describe("RoomListViewModel", () => {
                     if (setting === "RoomList.CustomSectionData") return {};
                     if (setting === "RoomList.OrderedCustomSections") return [];
                     if (setting === "RoomList.SectionExpansionState") return {};
+                    if (setting === "RoomList.SectionSorting") return {};
                     return undefined as any;
                 });
             }
@@ -489,6 +490,7 @@ describe("RoomListViewModel", () => {
                     if (setting === "RoomList.CustomSectionData") return {};
                     if (setting === "RoomList.OrderedCustomSections") return [];
                     if (setting === "RoomList.SectionExpansionState") return {};
+                    if (setting === "RoomList.SectionSorting") return {};
                     return undefined as any;
                 });
                 jest.spyOn(SettingsStore, "watchSetting").mockImplementation((setting, _room, callback) => {

@@ -29,6 +29,7 @@ const RoomListSectionHeaderViewWrapperImpl = ({
     onFocus,
     editSection,
     removeSection,
+    setSortOption,
     isFocused,
     sectionIndex,
     sectionCount,
@@ -36,7 +37,7 @@ const RoomListSectionHeaderViewWrapperImpl = ({
     roomCountInSection,
     ...rest
 }: RoomListSectionHeaderProps): JSX.Element => {
-    const vm = useMockedViewModel(rest, { onClick, editSection, removeSection });
+    const vm = useMockedViewModel(rest, { onClick, editSection, removeSection, setSortOption });
     return (
         <RoomListSectionHeaderView
             vm={vm}
@@ -73,11 +74,14 @@ const meta = {
             muted: false,
         },
         displaySectionMenu: true,
+        canEditSection: true,
         canBeReordered: true,
+        sortOption: "default",
         onClick: fn(),
         onFocus: fn(),
         editSection: fn(),
         removeSection: fn(),
+        setSortOption: fn(),
         sectionIndex: 1,
         sectionCount: 3,
         roomCountInSection: 5,

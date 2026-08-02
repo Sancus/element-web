@@ -177,7 +177,7 @@
         "section_created": "Section created",
         "section_header": {
             "edit_section": "Edit section",
-            "more_options": "More options",
+            "more_options_section": "More options for %(section)s",
             "remove_section": "Remove section",
             "toggle": "Toggle %(section)s section",
             "toggle_unread": "Toggle %(section)s section with unread rooms"
@@ -187,6 +187,7 @@
         "sort_type": {
             "activity": "Latest activity",
             "atoz": "A-Z",
+            "default": "Global default",
             "unread_first": "Unread first"
         },
         "space_menu": {

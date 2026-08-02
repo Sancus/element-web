@@ -5,11 +5,19 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
+import { type Page } from "@playwright/test";
 import { rejectToast, rejectToastIfExists } from "@element-hq/element-web-playwright-common";
 
 import { expect, test } from "../../../element-web-test";
 import { SettingLevel } from "../../../../src/settings/SettingLevel";
-import { assertRoomInSection, dragRoomToSection, getPrimaryFilters, getRoomList, getSectionHeader } from "./utils";
+import {
+    assertRoomInSection,
+    dragRoomToSection,
+    getPrimaryFilters,
+    getRoomList,
+    getRoomOptionsMenu,
+    getSectionHeader,
+} from "./utils";
 
 test.describe("Room list sections", () => {
     test.use({
@@ -283,6 +291,106 @@ test.describe("Room list sections", () => {
             await expect(getRoomList(page).getByRole("row", { name: "Open room favourite room" })).toBeVisible();
             await expect(getSectionHeader(page, "Chats")).toHaveAttribute("aria-expanded", "true");
             await expect(getRoomList(page).getByRole("row", { name: "Open room regular room" })).toBeVisible();
+        });
+    });
+
+    test.describe("Per-section sorting", () => {
+        // Created oldest first, so recency and alphabetical disagree in both sections.
+        const AARDVARK_FAV = "aardvark fav";
+        const ZEBRA_FAV = "zebra fav";
+        const ALPHA_ROOM = "alpha room";
+        const ZULU_ROOM = "zulu room";
+        const LABELS = [AARDVARK_FAV, ZEBRA_FAV, ALPHA_ROOM, ZULU_ROOM];
+
+        const BY_RECENCY = [ZEBRA_FAV, AARDVARK_FAV, ZULU_ROOM, ALPHA_ROOM];
+        const CHATS_ALPHABETICAL = [ZEBRA_FAV, AARDVARK_FAV, ALPHA_ROOM, ZULU_ROOM];
+
+        /**
+         * The rooms we care about, read top to bottom from the list. Sections are contiguous
+         * in the list, so a single ordered read covers both sections at once.
+         */
+        async function readRoomOrder(page: Page): Promise<string[]> {
+            const rows = await getRoomList(page).getByRole("row").allInnerTexts();
+            return rows.map((text) => LABELS.find((label) => text.includes(label))).filter((label) => !!label);
+        }
+
+        async function expectRoomOrder(page: Page, expected: string[]): Promise<void> {
+            await expect.poll(() => readRoomOrder(page)).toEqual(expected);
+        }
+
+        async function openSectionMenu(page: Page, sectionName: string): Promise<void> {
+            const sectionHeader = getSectionHeader(page, sectionName);
+            await sectionHeader.hover();
+            await sectionHeader.getByRole("button", { name: "More options" }).click();
+        }
+
+        /** Sort the whole list from the header overflow menu, as the global control does. */
+        async function setListWideSort(page: Page, optionName: string): Promise<void> {
+            await getRoomOptionsMenu(page).click();
+            await page.getByRole("menuitemradio", { name: optionName }).click();
+        }
+
+        test.beforeEach(async ({ app }) => {
+            for (const name of [AARDVARK_FAV, ZEBRA_FAV]) {
+                const roomId = await app.client.createRoom({ name });
+                await app.client.evaluate(async (client, roomId) => {
+                    await client.setRoomTag(roomId, "m.favourite");
+                }, roomId);
+            }
+            await app.client.createRoom({ name: ALPHA_ROOM });
+            await app.client.createRoom({ name: ZULU_ROOM });
+        });
+
+        test("sorts a single section without touching the others", async ({ page }) => {
+            await expectRoomOrder(page, BY_RECENCY);
+
+            // Every section follows the list-wide order until it is pinned
+            await openSectionMenu(page, "Chats");
+            await expect(page.getByRole("menuitemradio", { name: "Global default" })).toBeChecked();
+
+            await page.getByRole("menuitemradio", { name: "A-Z" }).click();
+
+            // Chats is alphabetical, Favourites is still on the list-wide recency order
+            await expectRoomOrder(page, CHATS_ALPHABETICAL);
+
+            // Returning the section to the global default drops the override
+            await openSectionMenu(page, "Chats");
+            await expect(page.getByRole("menuitemradio", { name: "A-Z" })).toBeChecked();
+            await page.getByRole("menuitemradio", { name: "Global default" }).click();
+
+            await expectRoomOrder(page, BY_RECENCY);
+        });
+
+        test("keeps a pinned section pinned when the list-wide sort changes", async ({ page }) => {
+            await openSectionMenu(page, "Chats");
+            await page.getByRole("menuitemradio", { name: "A-Z" }).click();
+            await expectRoomOrder(page, CHATS_ALPHABETICAL);
+
+            // Favourites follows the list-wide switch to A-Z; Chats was already pinned to it
+            await setListWideSort(page, "A-Z");
+            await expectRoomOrder(page, [AARDVARK_FAV, ZEBRA_FAV, ALPHA_ROOM, ZULU_ROOM]);
+
+            // Back to a list-wide recency order: Favourites follows, Chats stays alphabetical
+            await setListWideSort(page, "Latest activity");
+            await expectRoomOrder(page, CHATS_ALPHABETICAL);
+
+            // The section still reads as pinned rather than as following the list
+            await openSectionMenu(page, "Chats");
+            await expect(page.getByRole("menuitemradio", { name: "A-Z" })).toBeChecked();
+        });
+
+        test("persists the override across reloads", async ({ page }) => {
+            await openSectionMenu(page, "Chats");
+            await page.getByRole("menuitemradio", { name: "A-Z" }).click();
+            await expectRoomOrder(page, CHATS_ALPHABETICAL);
+
+            await page.reload();
+            await rejectToastIfExists(page, "Verify this device");
+            await rejectToastIfExists(page, "Notifications");
+
+            await expectRoomOrder(page, CHATS_ALPHABETICAL);
+            await openSectionMenu(page, "Chats");
+            await expect(page.getByRole("menuitemradio", { name: "A-Z" })).toBeChecked();
         });
     });
 

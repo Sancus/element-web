@@ -57,6 +57,7 @@ import {
     type ReorderableSection,
     type CustomSectionsData,
     type SectionExpansionState,
+    type SectionSortingState,
 } from "../stores/room-list-v3/section.ts";
 import { type NotificationSound } from "../Notifier.ts";
 import VideoRoomsBetaImage from "../../res/img/betas/video_rooms.png";
@@ -369,6 +370,7 @@ export interface Settings {
     "RoomList.CustomSectionData": IBaseSetting<CustomSectionsData>;
     "RoomList.OrderedCustomSections": IBaseSetting<ReorderableSection[]>;
     "RoomList.SectionExpansionState": IBaseSetting<SectionExpansionState>;
+    "RoomList.SectionSorting": IBaseSetting<SectionSortingState>;
     "RoomList.showSections": IBaseSetting<boolean>;
 }
 
@@ -1359,6 +1361,15 @@ export const SETTINGS: Settings = {
      * Store the expanded/collapsed state of the room list sections, per space and per section tag
      */
     "RoomList.SectionExpansionState": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
+        default: {},
+    },
+    /**
+     * Managed by the {@link RoomListSectionHeaderViewModel}
+     * Store the sorting algorithm each room list section is pinned to, keyed by section tag.
+     * A section with no entry follows {@link RoomList.preferredSorting}.
+     */
+    "RoomList.SectionSorting": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
         default: {},
     },

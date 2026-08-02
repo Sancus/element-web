@@ -15,6 +15,7 @@ import { RemoveSectionDialog } from "../../components/views/dialogs/RemoveSectio
 import { DefaultTagID, type TagID } from "./skip-list/tag";
 import { isMetaSpace, MetaSpace, type SpaceKey } from "../spaces";
 import { SDKContextClass } from "../../contexts/SDKContextClass.ts";
+import { SortingAlgorithm } from "./skip-list/sorters";
 
 /**
  * A synthetic tag used to represent the "Chats" section, which contains
@@ -163,6 +164,47 @@ export async function setSectionExpanded(spaceId: string, tag: string, expanded:
 }
 
 /**
+ * Persisted per-section sort overrides, keyed by section tag. A tag with no entry follows the
+ * list-wide `RoomList.preferredSorting` order.
+ */
+export type SectionSortingState = { [sectionTag: string]: SortingAlgorithm };
+
+/** Listed by hand because {@link SortingAlgorithm} is a `const enum` and has no runtime object. */
+const KNOWN_SORTING_ALGORITHMS: ReadonlySet<string> = new Set([
+    SortingAlgorithm.Unread,
+    SortingAlgorithm.Recency,
+    SortingAlgorithm.Alphabetic,
+]);
+
+/**
+ * Returns the sorting algorithm the given section is pinned to, or undefined when it follows the
+ * list-wide order.
+ *
+ * A stored algorithm this build doesn't know — after a downgrade, say — counts as no override, so
+ * that every consumer agrees on what the section is doing.
+ * @param tag - The tag of the section.
+ */
+export function getSectionSorting(tag: string): SortingAlgorithm | undefined {
+    const algorithm = SettingsStore.getValue("RoomList.SectionSorting")[tag];
+    return KNOWN_SORTING_ALGORITHMS.has(algorithm) ? algorithm : undefined;
+}
+
+/**
+ * Persists the sorting algorithm of a section at the device level.
+ * @param tag - The tag of the section.
+ * @param algorithm - The algorithm to pin the section to, or undefined to make it follow the
+ *     list-wide order again.
+ */
+export async function setSectionSorting(tag: string, algorithm: SortingAlgorithm | undefined): Promise<void> {
+    const state = SettingsStore.getValue("RoomList.SectionSorting");
+    const newState: SectionSortingState = { ...state };
+    // Delete rather than store undefined so that a section back on the list-wide order leaves no residue
+    if (algorithm === undefined) delete newState[tag];
+    else newState[tag] = algorithm;
+    await SettingsStore.setValue("RoomList.SectionSorting", null, SettingLevel.DEVICE, newState);
+}
+
+/**
  * Retrieves the ordered list of custom section tags from the settings.
  * If the settings contain tags that are not present in the custom section data, they will be filtered out and the settings will be updated to remove the unknown tags.
  *
@@ -276,6 +318,9 @@ export async function deleteSection(tag: string, isEmpty: boolean): Promise<void
     // Remove the section data
     delete sectionData[tag];
     await SettingsStore.setValue("RoomList.CustomSectionData", null, SettingLevel.ACCOUNT, sectionData);
+
+    // Tags are random UUIDs, so an override left behind here would linger unreachable forever
+    await setSectionSorting(tag, undefined);
 }
 
 /**

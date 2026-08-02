@@ -19,6 +19,13 @@ import { getGroupHeaderAccessibleProps } from "../../../core/VirtualizedList";
 import { RoomListSectionHeaderContent } from "./RoomListSectionHeaderContent";
 import { isSectionDragData, type RoomListDragData, type SectionDragData } from "../dragAndDrop";
 import { type NotificationDecorationData } from "../RoomListItemWrapper/RoomListItemView/NotificationDecoration";
+import { type SortOption } from "../../RoomListHeaderView";
+
+/**
+ * How a single section is sorted. `"default"` means the section is not pinned and follows the
+ * list-wide sort option instead.
+ */
+export type SectionSortOption = SortOption | "default";
 
 /**
  * The observable state snapshot for a room list section header.
@@ -36,8 +43,12 @@ export interface RoomListSectionHeaderViewSnapshot {
     notification?: NotificationDecorationData;
     /** Wether to display the section menu  */
     displaySectionMenu: boolean;
+    /** Whether the section can be renamed and removed  */
+    canEditSection: boolean;
     /** Whether the section can be reordered via drag-and-drop  */
     canBeReordered: boolean;
+    /** The sort the section is pinned to, or `"default"` when it follows the list-wide sort */
+    sortOption: SectionSortOption;
 }
 
 /**
@@ -50,6 +61,8 @@ export interface RoomListSectionHeaderActions {
     editSection: () => void;
     /** Handler invoked when the remove section button is clicked  */
     removeSection: () => void;
+    /** Handler invoked when a sort option is picked for this section  */
+    setSortOption: (option: SectionSortOption) => void;
 }
 
 /**

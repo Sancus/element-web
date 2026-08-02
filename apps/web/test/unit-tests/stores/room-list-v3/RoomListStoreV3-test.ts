@@ -36,7 +36,7 @@ import * as utils from "../../../../src/utils/notifications";
 import * as utilsRLS from "../../../../src/stores/room-list-v3/utils.ts";
 import { Action } from "../../../../src/dispatcher/actions";
 import { SettingLevel } from "../../../../src/settings/SettingLevel.ts";
-import { CHATS_TAG } from "../../../../src/stores/room-list-v3/section";
+import { CHATS_TAG, type SectionSortingState } from "../../../../src/stores/room-list-v3/section";
 import { SDKContextClass } from "../../../../src/contexts/SDKContextClass.ts";
 
 describe("RoomListStoreV3", () => {
@@ -1265,6 +1265,114 @@ describe("RoomListStoreV3", () => {
                 await store.removeSection("element.io.section.test-tag", false);
                 expect(sectionModule.deleteSection).toHaveBeenCalledWith("element.io.section.test-tag", false);
                 expect(listsUpdateListener).toHaveBeenCalled();
+            });
+        });
+
+        describe("Section sorting", () => {
+            function enableSectionsWithSorting(sectionSorting: SectionSortingState): void {
+                jest.spyOn(SettingsStore, "getValue").mockImplementation((setting: string) => {
+                    if (setting === "RoomList.showSections") return true;
+                    if (setting === "RoomList.OrderedCustomSections") return [];
+                    if (setting === "RoomList.CustomSectionData") return {};
+                    if (setting === "RoomList.SectionSorting") return sectionSorting;
+                    return false;
+                });
+                // resort() persists the list-wide algorithm at device level, which would outlive the test.
+                jest.spyOn(SettingsStore, "setValue").mockResolvedValue(undefined);
+            }
+
+            /** Two favourites so that both Favourites and Chats are non-trivially populated. */
+            function tagFavourites(rooms: Room[]): void {
+                [3, 7].forEach((i) => {
+                    rooms[i].tags[DefaultTagID.Favourite] = {};
+                });
+            }
+
+            it("sorts a pinned section independently, leaving the others on the list-wide order", async () => {
+                enableSectionsWithSorting({ [CHATS_TAG]: SortingAlgorithm.Alphabetic });
+                const { client, rooms } = getClientAndRooms();
+                tagFavourites(rooms);
+
+                const store = new RoomListStoreV3Class(dispatcher);
+                await store.start();
+
+                const { sections } = store.getSortedRoomsInActiveSpace();
+                const chats = findSection(sections, CHATS_TAG)!;
+                const favourites = findSection(sections, DefaultTagID.Favourite)!;
+                const recency = new RecencySorter(client.getSafeUserId());
+
+                expect(chats.rooms).toEqual(new AlphabeticSorter().sort(chats.rooms));
+                expect(chats.rooms).not.toEqual(recency.sort(chats.rooms));
+                expect(favourites.rooms).toEqual(recency.sort(favourites.rooms));
+            });
+
+            it("leaves every section on the list-wide order when nothing is pinned", async () => {
+                enableSectionsWithSorting({});
+                const { client, rooms } = getClientAndRooms();
+                tagFavourites(rooms);
+
+                const store = new RoomListStoreV3Class(dispatcher);
+                await store.start();
+
+                const recency = new RecencySorter(client.getSafeUserId());
+                for (const section of store.getSortedRoomsInActiveSpace().sections) {
+                    expect(section.rooms).toEqual(recency.sort(section.rooms));
+                }
+            });
+
+            it("keeps a pinned section on its own order when the list-wide sort changes", async () => {
+                enableSectionsWithSorting({ [CHATS_TAG]: SortingAlgorithm.Recency });
+                const { client, rooms } = getClientAndRooms();
+                tagFavourites(rooms);
+
+                const store = new RoomListStoreV3Class(dispatcher);
+                await store.start();
+                store.resort(SortingAlgorithm.Alphabetic);
+
+                const { sections } = store.getSortedRoomsInActiveSpace();
+                const chats = findSection(sections, CHATS_TAG)!;
+                const favourites = findSection(sections, DefaultTagID.Favourite)!;
+
+                // The unpinned section follows the new list-wide order, the pinned one does not
+                expect(favourites.rooms).toEqual(new AlphabeticSorter().sort(favourites.rooms));
+                expect(chats.rooms).toEqual(new RecencySorter(client.getSafeUserId()).sort(chats.rooms));
+                expect(chats.rooms).not.toEqual(new AlphabeticSorter().sort(chats.rooms));
+            });
+
+            describe("resortSection", () => {
+                it("persists the override and emits LISTS_UPDATE_EVENT", async () => {
+                    enableSectionsWithSorting({});
+                    getClientAndRooms();
+                    const setSectionSortingSpy = jest
+                        .spyOn(sectionModule, "setSectionSorting")
+                        .mockResolvedValue(undefined);
+
+                    const store = new RoomListStoreV3Class(dispatcher);
+                    await store.start();
+
+                    const listsUpdateListener = jest.fn();
+                    store.on(LISTS_UPDATE_EVENT, listsUpdateListener);
+
+                    await store.resortSection(CHATS_TAG, SortingAlgorithm.Alphabetic);
+
+                    expect(setSectionSortingSpy).toHaveBeenCalledWith(CHATS_TAG, SortingAlgorithm.Alphabetic);
+                    expect(listsUpdateListener).toHaveBeenCalled();
+                });
+
+                it("clears the override when passed undefined", async () => {
+                    enableSectionsWithSorting({ [CHATS_TAG]: SortingAlgorithm.Alphabetic });
+                    getClientAndRooms();
+                    const setSectionSortingSpy = jest
+                        .spyOn(sectionModule, "setSectionSorting")
+                        .mockResolvedValue(undefined);
+
+                    const store = new RoomListStoreV3Class(dispatcher);
+                    await store.start();
+
+                    await store.resortSection(CHATS_TAG, undefined);
+
+                    expect(setSectionSortingSpy).toHaveBeenCalledWith(CHATS_TAG, undefined);
+                });
             });
         });
 

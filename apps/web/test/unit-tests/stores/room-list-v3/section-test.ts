@@ -15,14 +15,17 @@ import {
     deleteSection,
     getCustomSectionData,
     getOrderedCustomSections,
+    getSectionSorting,
     isDefaultSectionTag,
     isSectionExpanded,
     setSectionExpanded,
+    setSectionSorting,
     CHATS_TAG,
     CUSTOM_SECTION_TAG_PREFIX,
     isSectionTag,
     reorderSection,
 } from "../../../../src/stores/room-list-v3/section";
+import { SortingAlgorithm } from "../../../../src/stores/room-list-v3/skip-list/sorters";
 import { SettingLevel } from "../../../../src/settings/SettingLevel";
 import { CreateSectionDialog } from "../../../../src/components/views/dialogs/CreateSectionDialog";
 import { RemoveSectionDialog } from "../../../../src/components/views/dialogs/RemoveSectionDialog";
@@ -191,6 +194,52 @@ describe("section", () => {
         });
     });
 
+    describe("getSectionSorting", () => {
+        const tag = "element.io.section.abc";
+
+        it.each([
+            { value: {}, result: undefined },
+            { value: { "other.tag": SortingAlgorithm.Alphabetic }, result: undefined },
+            { value: { [tag]: SortingAlgorithm.Alphabetic }, result: SortingAlgorithm.Alphabetic },
+            // Reachable after a downgrade or a hand-edited setting
+            { value: { [tag]: "Chronological" }, result: undefined },
+        ])("returns $result when value=$value", ({ value, result }) => {
+            jest.spyOn(SettingsStore, "getValue").mockReturnValue(value as any);
+            expect(getSectionSorting(tag)).toBe(result);
+        });
+    });
+
+    describe("setSectionSorting", () => {
+        const tag = "element.io.section.abc";
+        const otherTag = "element.io.section.other";
+
+        it("persists the algorithm at the device level, keeping other sections", async () => {
+            jest.spyOn(SettingsStore, "getValue").mockReturnValue({ [otherTag]: SortingAlgorithm.Recency });
+            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockResolvedValue(undefined);
+
+            await setSectionSorting(tag, SortingAlgorithm.Alphabetic);
+
+            expect(setValueSpy).toHaveBeenCalledWith("RoomList.SectionSorting", null, SettingLevel.DEVICE, {
+                [otherTag]: SortingAlgorithm.Recency,
+                [tag]: SortingAlgorithm.Alphabetic,
+            });
+        });
+
+        it("deletes the key rather than storing undefined when the override is cleared", async () => {
+            jest.spyOn(SettingsStore, "getValue").mockReturnValue({
+                [tag]: SortingAlgorithm.Alphabetic,
+                [otherTag]: SortingAlgorithm.Recency,
+            });
+            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockResolvedValue(undefined);
+
+            await setSectionSorting(tag, undefined);
+
+            const stored = setValueSpy.mock.calls[0][3] as Record<string, SortingAlgorithm>;
+            expect(stored).toEqual({ [otherTag]: SortingAlgorithm.Recency });
+            expect(Object.keys(stored)).not.toContain(tag);
+        });
+    });
+
     describe("createSection", () => {
         beforeEach(() => {
             jest.spyOn(SettingsStore, "getValue").mockReturnValue(null);
@@ -340,6 +389,8 @@ describe("section", () => {
                 if (setting === "RoomList.CustomSectionData")
                     return { [tag]: { tag, name: "My Section" }, [otherTag]: { tag: otherTag, name: "Other Section" } };
                 if (setting === "RoomList.OrderedCustomSections") return [otherTag, tag];
+                if (setting === "RoomList.SectionSorting")
+                    return { [tag]: SortingAlgorithm.Alphabetic, [otherTag]: SortingAlgorithm.Recency };
                 return null;
             });
             jest.spyOn(SettingsStore, "setValue").mockResolvedValue(undefined);
@@ -398,6 +449,36 @@ describe("section", () => {
 
             const customDataCall = setValueSpy.mock.calls.find(([name]) => name === "RoomList.CustomSectionData");
             expect(customDataCall![3]).not.toHaveProperty(tag);
+        });
+
+        it("clears the section's sort override when confirmed", async () => {
+            jest.spyOn(Modal, "createDialog").mockReturnValue({
+                finished: Promise.resolve([true]),
+                close: jest.fn(),
+            } as any);
+            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockResolvedValue(undefined);
+
+            await deleteSection(tag, false);
+
+            const sortingCall = setValueSpy.mock.calls.find(([name]) => name === "RoomList.SectionSorting");
+            expect(sortingCall![3]).toEqual({ [otherTag]: SortingAlgorithm.Recency });
+        });
+
+        it("keeps the section's sort override when the user cancels", async () => {
+            jest.spyOn(Modal, "createDialog").mockReturnValue({
+                finished: Promise.resolve([false]),
+                close: jest.fn(),
+            } as any);
+            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockResolvedValue(undefined);
+
+            await deleteSection(tag, false);
+
+            expect(setValueSpy).not.toHaveBeenCalledWith(
+                "RoomList.SectionSorting",
+                null,
+                SettingLevel.DEVICE,
+                expect.anything(),
+            );
         });
     });
 

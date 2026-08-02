@@ -22,6 +22,7 @@ describe("<RoomListSectionHeaderView /> stories", () => {
         // Storybook's fn() mocks aren't reset by vi.clearAllMocks; clear them by hand.
         (Default.args.onClick as Mock).mockClear();
         (Collapsed.args.onClick as Mock).mockClear();
+        (Default.args.setSortOption as Mock).mockClear();
     });
 
     it("renders Default story", () => {
@@ -81,6 +82,73 @@ describe("<RoomListSectionHeaderView /> stories", () => {
         render(<Collapsed isFocused={true} />);
         await user.keyboard("{ArrowLeft}");
         expect(Collapsed.args.onClick).not.toHaveBeenCalled();
+    });
+
+    describe("section menu", () => {
+        // isFocused reveals the menu, which is otherwise only shown on hover or keyboard focus.
+        // The trigger is named after its section so that headers don't all expose the same button.
+        async function openMenu(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+            await user.click(screen.getByRole("button", { name: "More options for Favourites" }));
+        }
+
+        it("checks the section's own sort and reports a new selection", async () => {
+            const user = userEvent.setup();
+            render(<Default isFocused={true} sortOption="alphabetical" />);
+            await openMenu(user);
+
+            expect(screen.getByRole("menuitemradio", { name: "A-Z" })).toBeChecked();
+            expect(screen.getByRole("menuitemradio", { name: "Global default" })).not.toBeChecked();
+            expect(screen.getByRole("menuitemradio", { name: "Latest activity" })).not.toBeChecked();
+            expect(screen.getByRole("menuitemradio", { name: "Unread first" })).not.toBeChecked();
+
+            await user.click(screen.getByRole("menuitemradio", { name: "Unread first" }));
+            expect(Default.args.setSortOption).toHaveBeenCalledWith("unread-first");
+        });
+
+        it("checks Global default for a section that follows the list", async () => {
+            const user = userEvent.setup();
+            render(<Default isFocused={true} sortOption="default" />);
+            await openMenu(user);
+
+            expect(screen.getByRole("menuitemradio", { name: "Global default" })).toBeChecked();
+        });
+
+        it("offers Edit and Remove only when the section can be edited", async () => {
+            const user = userEvent.setup();
+            const { unmount } = render(<Default isFocused={true} canEditSection={false} />);
+            await openMenu(user);
+
+            expect(screen.queryByRole("menuitem", { name: "Edit section" })).toBeNull();
+            expect(screen.queryByRole("menuitem", { name: "Remove section" })).toBeNull();
+            // The sort options are still there, which is the point of showing the menu at all
+            expect(screen.getByRole("menuitemradio", { name: "A-Z" })).toBeVisible();
+            unmount();
+
+            render(<Default isFocused={true} canEditSection={true} />);
+            await openMenu(user);
+
+            expect(screen.getByRole("menuitem", { name: "Edit section" })).toBeVisible();
+            expect(screen.getByRole("menuitem", { name: "Remove section" })).toBeVisible();
+        });
+
+        // The trigger sits inside the header button and the menu, though portaled, still routes its
+        // events through it in the React tree. Either would otherwise collapse the section.
+        it("does not toggle the section when the menu is opened", async () => {
+            const user = userEvent.setup();
+            render(<Default isFocused={true} />);
+            await openMenu(user);
+
+            expect(Default.args.onClick).not.toHaveBeenCalled();
+        });
+
+        it("does not toggle the section when a sort option is picked", async () => {
+            const user = userEvent.setup();
+            render(<Default isFocused={true} />);
+            await openMenu(user);
+
+            await user.click(screen.getByRole("menuitemradio", { name: "A-Z" }));
+            expect(Default.args.onClick).not.toHaveBeenCalled();
+        });
     });
 
     it("ArrowRight on an expanded section re-dispatches as ArrowDown", async () => {

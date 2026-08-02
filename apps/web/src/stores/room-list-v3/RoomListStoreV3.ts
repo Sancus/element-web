@@ -45,7 +45,9 @@ import {
     deleteSection,
     editSection,
     getOrderedReorderableSections,
+    getSectionSorting,
     reorderSection,
+    setSectionSorting,
 } from "./section";
 import { DefaultTagID, type TagID } from "./skip-list/tag";
 import { SDKContextClass } from "../../contexts/SDKContextClass.ts";
@@ -127,6 +129,12 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
      * Used by {@link scheduleEmit} to coalesce rapid-fire updates into a single emit per frame.
      */
     private pendingEmit = false;
+
+    /**
+     * Sorters used to re-order the sections that opt out of the skip list's ordering, kept per
+     * algorithm so that a section override doesn't construct a new sorter on every emit.
+     */
+    private readonly sectionSorters: Map<SortingAlgorithm, Sorter> = new Map();
 
     public constructor(dispatcher: MatrixDispatcher) {
         super(dispatcher);
@@ -226,6 +234,17 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     }
 
     /**
+     * Pin a single section to its own sorting algorithm, independently of the list-wide order.
+     * Emits {@link LISTS_UPDATE_EVENT}.
+     * @param tag The tag of the section to re-sort.
+     * @param algorithm The algorithm to pin the section to, or undefined to follow the list-wide order.
+     */
+    public async resortSection(tag: string, algorithm: SortingAlgorithm | undefined): Promise<void> {
+        await setSectionSorting(tag, algorithm);
+        this.scheduleEmit();
+    }
+
+    /**
      * Currently active sorting algorithm if the store is ready or undefined otherwise.
      */
     public get activeSortAlgorithm(): SortingAlgorithm | undefined {
@@ -247,6 +266,8 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
 
     protected async onNotReady(): Promise<void> {
         this.roomSkipList = undefined;
+        // The recency sorters are bound to the user id they were created with
+        this.sectionSorters.clear();
     }
 
     protected async onAction(payload: ActionPayload): Promise<void> {
@@ -501,16 +522,38 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
      * @returns An array of sections
      */
     private getSections(filterKeys?: FilterKey[]): Section[] {
+        const listAlgorithm = this.roomSkipList?.activeSortAlgorithm;
         return this.sortedTags
             .map((tag) => {
                 const filters = filterBoolean([this.filterByTag.get(tag)?.key, ...(filterKeys ?? [])]);
+                const rooms = Array.from(this.roomSkipList?.getRoomsInActiveSpace(filters) || []);
 
-                return {
-                    tag,
-                    rooms: Array.from(this.roomSkipList?.getRoomsInActiveSpace(filters) || []),
-                };
+                // The skip list already holds the rooms in the list-wide order, so a section only
+                // needs re-sorting when it is pinned to a different algorithm.
+                const algorithm = getSectionSorting(tag);
+                const sorter = algorithm && algorithm !== listAlgorithm ? this.getSectionSorter(algorithm) : undefined;
+
+                return { tag, rooms: sorter ? sorter.sort(rooms) : rooms };
             })
             .filter((section) => !filterKeys || section.rooms.length > 0);
+    }
+
+    /**
+     * Get the sorter used to re-order a pinned section, creating it on first use.
+     *
+     * Callers must sort through {@link Sorter.sort} rather than the bare comparator: the recency
+     * sorters build a timestamp cache per call and hand it to the comparator, so calling the
+     * comparator directly walks the timeline of a room on every single comparison.
+     * @param algorithm The algorithm the section is pinned to.
+     */
+    private getSectionSorter(algorithm: SortingAlgorithm): Sorter | undefined {
+        if (!this.matrixClient) return undefined;
+        let sorter = this.sectionSorters.get(algorithm);
+        if (!sorter) {
+            sorter = this.getSorterFromSortingAlgorithm(algorithm, this.matrixClient.getSafeUserId());
+            this.sectionSorters.set(algorithm, sorter);
+        }
+        return sorter;
     }
 
     /**
