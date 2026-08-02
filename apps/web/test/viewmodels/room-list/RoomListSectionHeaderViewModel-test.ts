@@ -363,13 +363,14 @@ describe("RoomListSectionHeaderViewModel", () => {
             ["unread-first", SortingAlgorithm.Unread],
             ["alphabetical", SortingAlgorithm.Alphabetic],
             ["default", undefined],
-        ] as const)("maps %s onto %s when selected", async (option, algorithm) => {
+        ] as const)("maps %s onto %s when selected", (option, algorithm) => {
             const resortSectionSpy = jest.spyOn(RoomListStoreV3.instance, "resortSection").mockResolvedValue(undefined);
             const vm = createViewModel();
 
-            await vm.setSortOption(option);
+            vm.setSortOption(option);
 
             expect(resortSectionSpy).toHaveBeenCalledWith(tag, algorithm);
+            // The snapshot is updated without waiting for the store to persist the choice
             expect(vm.getSnapshot().sortOption).toBe(option);
         });
     });

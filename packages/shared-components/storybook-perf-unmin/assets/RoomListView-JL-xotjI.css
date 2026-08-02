@@ -1,0 +1,487 @@
+@layer shared-components {
+/*
+ * Copyright 2025 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+._roomListPrimaryFilters_1o2qy_9 {
+    padding: 0 var(--cpd-space-4x) var(--cpd-space-5x) var(--cpd-space-3x);
+}
+
+/* Hide filters that are wrapping when collapsed */
+._roomListPrimaryFilters_1o2qy_9 .wrapping {
+    display: none;
+}
+
+._list_1o2qy_18 {
+    /**
+     * The InteractionObserver needs the height to be set to work properly.
+     */
+    height: 100%;
+    flex: 1;
+    user-select: none; /* currently supported by Chrome, Edge, Opera and Firefox */
+}
+
+/* IconButton styles for chevron */
+._iconButton_1o2qy_28 svg {
+    transition: transform 0.1s linear;
+}
+
+._iconButton_1o2qy_28[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+}
+@layer shared-components {
+/*
+ * Copyright 2025 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+._skeleton_2sqf6_9 {
+    position: relative;
+    margin-left: 4px;
+    height: 100%;
+    flex: 1;
+}
+
+._skeleton_2sqf6_9::before {
+    background-color: var(--cpd-color-bg-subtle-secondary);
+    width: 100%;
+    height: 100%;
+    content: "";
+    position: absolute;
+    mask-repeat: repeat-y;
+    mask-size: auto 96px;
+    mask-image: url("./skeleton-DQkullzb.svg");
+}
+
+}
+@layer shared-components {
+/*
+ * Copyright 2025 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+._genericPlaceholder_1kv6w_9 {
+    align-self: center;
+    /** It should take 2/3 of the width **/
+    width: 66%;
+    /** It should be positioned at 1/3 of the height **/
+    padding-top: 33%;
+}
+
+._title_1kv6w_17 {
+    font: var(--cpd-font-body-lg-semibold);
+    text-align: center;
+}
+
+._description_1kv6w_22 {
+    font: var(--cpd-font-body-sm-regular);
+    color: var(--cpd-color-text-secondary);
+    text-align: center;
+}
+
+._defaultPlaceholder_1kv6w_28 {
+    margin-top: var(--cpd-space-4x);
+}
+
+._genericPlaceholder_1kv6w_9 button {
+    width: 100%;
+}
+
+}
+@layer shared-components {
+/*
+Copyright 2026 Element Creations Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE files in the repository root for full details.
+*/
+
+/*
+Wrapper that establishes the positioning context for the pinned overlay header.
+It must fill its parent so the virtualized scroller below it keeps its height.
+*/
+._stickyRoot_1v88b_13 {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    /* Keep the pinned overlay and list content clipped to the panel bounds. */
+    overflow: hidden;
+}
+
+/*
+The pinned "current section" overlay header. It lives OUTSIDE the virtualized item stream so it never
+unmounts, and backstops the cover/reveal done by the sticky header rows (.stickyRow): once a tall
+section's real header row scrolls far enough that the virtualizer unmounts it, this overlay keeps that
+section's header visible at the top. A mounted real header row (z-index 2) sits exactly over it, so
+the hand-off is invisible. It is interactive (click toggles the section, hover highlights), so wheel
+events over it are forwarded to the scroller in JS to keep scrolling working.
+
+Only the relative order of this local 3-layer stack matters — room rows (normal flow) < this overlay
+< real sticky header rows (.stickyRow) — so the values are just 1 and 2, not tied to any global scale.
+*/
+._stickyHeader_1v88b_33 {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    z-index: 1;
+    pointer-events: auto;
+}
+
+/*
+Section-header rows pin natively, which is what produces the cover/reveal: `top: 0` sticks each
+header to the scroller's top; z-index above the overlay (1) so a mounted real header covers the
+overlay backstop, and so a stuck header covers the room rows scrolling beneath it. Consecutive stuck
+headers stack in DOM order, so the incoming header covers the current one on scroll-down and the
+top one slides off to reveal the previous on scroll-up. (Room rows stay in normal flow, not sticky.)
+
+The opaque background is essential: every header scrolled past the top stays stuck at top:0, so they
+overlap. Without an opaque fill they show through each other (overlapping text); with it, the current
+(top-most, last-in-DOM) header covers the rest, and sliding it down on scroll-up reveals the previous.
+*/
+._stickyRow_1v88b_24 {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--cpd-color-bg-canvas-default);
+}
+
+}
+@layer shared-components {
+/*
+ * Copyright 2026 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+._header_15h19_9 {
+    /* Remove button default style */
+    background: unset;
+    border: none;
+    text-align: unset;
+
+    width: 100%;
+    cursor: pointer;
+    font: var(--cpd-font-body-sm-regular);
+    letter-spacing: var(--cpd-font-letter-spacing-body-sm);
+    color: var(--cpd-color-text-secondary);
+    padding: var(--cpd-space-1x) 0;
+
+    &:hover,
+    
+    &._keyboardActive_15h19_26,
+    &:has(button[data-state="open"]) {
+        color: var(--cpd-color-text-primary);
+
+        svg {
+            fill: var(--cpd-color-icon-primary);
+        }
+
+        ._container_15h19_34 {
+            background-color: var(--cpd-color-bg-action-tertiary-hovered);
+        }
+
+        ._menu_15h19_38 {
+            display: initial;
+        }
+
+        /* When a menu is present and revealed on hover, hide the decoration to avoid clutter.
+           Default sections have no menu, so their decoration stays visible on hover. */
+        ._notificationDecoration_15h19_44 {
+            display: none;
+        }
+    }
+
+    ._chevron_15h19_49 {
+        transition: transform 0.05s linear;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        ._chevron_15h19_49 {
+            transition: none;
+        }
+    }
+
+    &[aria-expanded="true"] {
+        ._chevron_15h19_49 {
+            transform: rotate(90deg);
+        }
+    }
+
+    /* A focused header can be scrolled flush to the scroller's top edge (where it pins), so the
+       default outline would be clipped by overflow:auto. Inset it so the focus ring stays visible. */
+    &:focus-visible {
+        outline-offset: -2px;
+    }
+
+    &._unread_15h19_71 {
+        font: var(--cpd-font-body-sm-semibold);
+        color: var(--cpd-color-text-primary);
+    }
+}
+
+._container_15h19_34 {
+    position: relative;
+    margin: 0 var(--cpd-space-3x);
+    padding: var(--cpd-space-1-5x) var(--cpd-space-2x) var(--cpd-space-1-5x) var(--cpd-space-1x);
+    border-radius: 8px;
+
+    div {
+        min-width: 0;
+    }
+
+    svg {
+        flex-shrink: 0;
+    }
+}
+
+._title_15h19_92 {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+._firstHeader_15h19_99 {
+    padding-top: 0;
+}
+
+._lastHeader_15h19_103 {
+    padding-bottom: 0;
+}
+
+._dropTarget_15h19_107 ._container_15h19_34 {
+    box-shadow: inset 0 0 0 2px var(--cpd-color-border-accent-primary);
+}
+
+._dropTargetBottom_15h19_111 ._container_15h19_34::after,
+._dropTargetTop_15h19_112 ._container_15h19_34::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--cpd-color-border-accent-primary);
+}
+
+._dropTargetBottom_15h19_111 ._container_15h19_34::after {
+    bottom: 0;
+}
+
+._dropTargetTop_15h19_112 ._container_15h19_34::before {
+    top: 0;
+}
+
+._menu_15h19_38 {
+    display: none;
+}
+
+._dragging_15h19_133 {
+    outline: 1px solid var(--cpd-color-border-interactive-hovered);
+    background-color: color-mix(in srgb, var(--cpd-color-bg-action-tertiary-hovered) 95%, transparent);
+    color: var(--cpd-color-text-primary);
+}
+
+._dragSource_15h19_139 ._container_15h19_34 {
+    opacity: 0.6;
+}
+
+/*
+Opaque backing for the pinned "current section" overlay header. The list rows scroll underneath it,
+so it must obscure them. The header button stays full width (so its pill aligns with the real header
+rows), while the opaque fill is painted by the pseudo-element below.
+*/
+._stickyBackground_15h19_148 {
+    position: relative;
+    width: 100%;
+}
+
+/*
+The opaque fill. It stops short of the inline-end edge by the same gutter the room/header pills
+already leave clear (--cpd-space-3x), so the scroller's scrollbar — which floats in that gutter —
+stays visible instead of being covered by the pinned overlay. It's a separate inset layer (rather
+than a plain `background` on .stickyBackground) precisely so it can stop short of that gutter.
+
+An absolutely-positioned element paints ABOVE its statically-positioned siblings by default, so
+`z-index: -1` is needed to drop this fill behind the header's text/chevron/menu. It still covers the
+scrolling rows beneath because the overlay wrapper (.stickyHeader) owns the stacking context.
+*/
+._stickyBackground_15h19_148::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline: 0 var(--cpd-space-3x);
+    z-index: -1;
+    background: var(--cpd-color-bg-canvas-default);
+}
+
+}
+@layer shared-components {
+/*
+ * Copyright 2026 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+._dragOverlay_4fnba_9 {
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+
+}
+@layer shared-components {
+/*
+ * Copyright 2026 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+._dragOverlay_1u76p_9 {
+    --padding-top: 0px;
+    --padding-bottom: 0px;
+}
+
+}
+@layer shared-components {
+/*
+ * Copyright 2025 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+/**
+ * Room list container styles
+ */
+._roomList_1pbt4_12 {
+    width: 100%;
+}
+
+}
+@layer shared-components {
+/*
+ * Copyright 2026 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+._toast_izd6s_9 {
+    position: absolute;
+    bottom: var(--cpd-space-4x);
+    left: var(--cpd-space-3x);
+    right: var(--cpd-space-3x);
+    width: fit-content;
+    margin: 0 auto;
+    /* Put the toast over the sticky headers  */
+    z-index: 3;
+}
+
+}
+@layer shared-components {
+/*
+ * Copyright 2026 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+._list_1ja6j_9 {
+    position: relative;
+    flex: 1;
+}
+
+._scrollbar_1ja6j_14 {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+}
+
+}
+@layer shared-components {
+/*
+ * Copyright 2026 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+._scrollbar_1ikce_9 {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overflow-y: overlay; /* where supported */
+    -ms-overflow-style: -ms-autohiding-scrollbar;
+
+    &::-webkit-scrollbar {
+        background-color: transparent;
+        width: 6px;
+        height: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background-color: transparent;
+    }
+
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+
+    > * {
+        /* also set on first level children in case this scrollbar is used as container */
+        scrollbar-width: thin;
+    }
+}
+
+._scrollbar_1ikce_9:hover {
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+
+    .cpd-theme-dark &,
+    .cpd-theme-dark-hc & {
+        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        border-radius: 3px;
+        background-color: rgba(0, 0, 0, 0.2);
+
+        .cpd-theme-dark &,
+        .cpd-theme-dark-hc & {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    ._scrollbar_1ikce_9:hover {
+        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+
+        .cpd-theme-light &,
+        .cpd-theme-light-hc & {
+            scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+        }
+
+        &::-webkit-scrollbar-thumb {
+            border-radius: 3px;
+            background-color: rgba(255, 255, 255, 0.2);
+
+            .cpd-theme-light &,
+            .cpd-theme-light-hc & {
+                background-color: rgba(0, 0, 0, 0.2);
+            }
+        }
+    }
+}
+
+}

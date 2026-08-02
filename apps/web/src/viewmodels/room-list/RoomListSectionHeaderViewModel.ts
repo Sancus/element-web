@@ -7,7 +7,6 @@
 
 import { type Room } from "matrix-js-sdk/src/matrix";
 import { CallType } from "matrix-js-sdk/src/webrtc/call";
-import { logger } from "matrix-js-sdk/src/logger";
 import {
     BaseViewModel,
     type NotificationDecorationData,
@@ -280,9 +279,10 @@ export class RoomListSectionHeaderViewModel
         PosthogTrackers.trackInteraction("WebDeleteSection");
     };
 
-    public setSortOption = async (option: SectionSortOption): Promise<void> => {
+    public setSortOption = (option: SectionSortOption): void => {
+        // We don't wait for the new order to be persisted, as it is not critical and we want the menu to update immediately
+        void RoomListStoreV3.instance.resortSection(this.props.tag, toSortingAlgorithm(option));
         this.snapshot.merge({ sortOption: option });
-        await RoomListStoreV3.instance.resortSection(this.props.tag, toSortingAlgorithm(option));
     };
 }
 
@@ -304,11 +304,8 @@ function toSectionSortOption(algorithm: SortingAlgorithm | undefined): SectionSo
         case undefined:
             return "default";
         default: {
-            // Exhaustive at compile time, but the value is read back from device settings, so an
-            // unrecognised one is possible and is treated as no override.
             const unhandled: never = algorithm;
-            logger.info(`RoomListSectionHeaderViewModel: unknown section sorting algorithm ${unhandled}`);
-            return "default";
+            throw new Error(`Unhandled section sorting algorithm ${unhandled}`);
         }
     }
 }

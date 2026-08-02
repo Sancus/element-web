@@ -15,7 +15,7 @@ import { RemoveSectionDialog } from "../../components/views/dialogs/RemoveSectio
 import { DefaultTagID, type TagID } from "./skip-list/tag";
 import { isMetaSpace, MetaSpace, type SpaceKey } from "../spaces";
 import { SDKContextClass } from "../../contexts/SDKContextClass.ts";
-import { type SortingAlgorithm } from "./skip-list/sorters";
+import { SortingAlgorithm } from "./skip-list/sorters";
 
 /**
  * A synthetic tag used to represent the "Chats" section, which contains
@@ -169,13 +169,24 @@ export async function setSectionExpanded(spaceId: string, tag: string, expanded:
  */
 export type SectionSortingState = { [sectionTag: string]: SortingAlgorithm };
 
+/** Listed by hand because {@link SortingAlgorithm} is a `const enum` and has no runtime object. */
+const KNOWN_SORTING_ALGORITHMS: ReadonlySet<string> = new Set([
+    SortingAlgorithm.Unread,
+    SortingAlgorithm.Recency,
+    SortingAlgorithm.Alphabetic,
+]);
+
 /**
  * Returns the sorting algorithm the given section is pinned to, or undefined when it follows the
  * list-wide order.
+ *
+ * A stored algorithm this build doesn't know — after a downgrade, say — counts as no override, so
+ * that every consumer agrees on what the section is doing.
  * @param tag - The tag of the section.
  */
 export function getSectionSorting(tag: string): SortingAlgorithm | undefined {
-    return SettingsStore.getValue("RoomList.SectionSorting")[tag];
+    const algorithm = SettingsStore.getValue("RoomList.SectionSorting")[tag];
+    return KNOWN_SORTING_ALGORITHMS.has(algorithm) ? algorithm : undefined;
 }
 
 /**
@@ -307,6 +318,9 @@ export async function deleteSection(tag: string, isEmpty: boolean): Promise<void
     // Remove the section data
     delete sectionData[tag];
     await SettingsStore.setValue("RoomList.CustomSectionData", null, SettingLevel.ACCOUNT, sectionData);
+
+    // Tags are random UUIDs, so an override left behind here would linger unreachable forever
+    await setSectionSorting(tag, undefined);
 }
 
 /**

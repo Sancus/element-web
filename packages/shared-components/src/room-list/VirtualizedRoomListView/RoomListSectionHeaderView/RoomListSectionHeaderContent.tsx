@@ -71,20 +71,23 @@ interface MenuComponentProps {
 
 function MenuComponent({ vm }: MenuComponentProps): JSX.Element {
     const [open, setOpen] = useState(false);
-    const { canEditSection, sortOption } = useViewModel(vm);
+    const { canEditSection, sortOption, title } = useViewModel(vm);
+    // Every header carries this button, so the section is what tells them apart. IconButton labels
+    // the trigger from its tooltip (via aria-labelledby), hence the same string for both.
+    const label = _t("room_list|section_header|more_options_section", { section: title });
 
     return (
         <Menu
             open={open}
             onOpenChange={setOpen}
-            title={_t("room_list|section_header|more_options")}
+            title={label}
             showTitle={false}
             align="start"
             trigger={
                 <IconButton
                     className={styles.menu}
-                    tooltip={_t("room_list|section_header|more_options")}
-                    aria-label={_t("room_list|section_header|more_options")}
+                    tooltip={label}
+                    aria-label={label}
                     size="24px"
                     style={{ padding: "2px" }}
                     color="var(--cpd-color-icon-primary)"

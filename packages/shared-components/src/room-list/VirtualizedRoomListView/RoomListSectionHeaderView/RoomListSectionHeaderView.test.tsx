@@ -86,8 +86,9 @@ describe("<RoomListSectionHeaderView /> stories", () => {
 
     describe("section menu", () => {
         // isFocused reveals the menu, which is otherwise only shown on hover or keyboard focus.
+        // The trigger is named after its section so that headers don't all expose the same button.
         async function openMenu(user: ReturnType<typeof userEvent.setup>): Promise<void> {
-            await user.click(screen.getByRole("button", { name: "More options" }));
+            await user.click(screen.getByRole("button", { name: "More options for Favourites" }));
         }
 
         it("checks the section's own sort and reports a new selection", async () => {
