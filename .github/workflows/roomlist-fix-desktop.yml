@@ -74,13 +74,19 @@ jobs:
               run: |
                   node -e '
                     const asar = require("@electron/asar");
-                    const hit = asar.listPackage("webapp.asar")
-                      .filter((f) => f.endsWith(".js"))
-                      .some((f) => {
-                        const buf = asar.extractFile("webapp.asar", f.replace(/^[\\/]/, ""));
-                        return buf.includes("mx_RoomAvatarView") && buf.includes("onMouseLeave");
-                      });
-                    if (!hit) throw new Error("gated avatar tooltip not found in webapp.asar");
+                    // Both halves have to survive the build: the compound-web fix (a closed label
+                    // tooltip renders as a bare hidden span) and the row-level hover gating on top.
+                    const want = {
+                      "compound-web tooltip fix": (b) => b.includes(`inlineSize:"1px"`) && b.includes(`clipPath:"inset(50%)"`),
+                      "gated avatar tooltip": (b) => b.includes("mx_RoomAvatarView") && b.includes("onMouseLeave"),
+                    };
+                    const found = new Set();
+                    for (const f of asar.listPackage("webapp.asar").filter((f) => f.endsWith(".js"))) {
+                      const buf = asar.extractFile("webapp.asar", f.replace(/^[\\/]/, ""));
+                      for (const [name, test] of Object.entries(want)) if (test(buf)) found.add(name);
+                    }
+                    const missing = Object.keys(want).filter((n) => !found.has(n));
+                    if (missing.length) throw new Error(`not in webapp.asar: ${missing.join(", ")}`);
                     console.log("fix verified in webapp.asar");
                   '
 
