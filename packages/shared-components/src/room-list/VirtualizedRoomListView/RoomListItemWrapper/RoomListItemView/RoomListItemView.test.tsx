@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import { render, screen, waitFor } from "@test-utils";
+import { fireEvent, render, screen, waitFor } from "@test-utils";
 import userEvent from "@testing-library/user-event";
 import { composeStories } from "@storybook/react-vite";
 import { describe, it, expect } from "vitest";
@@ -123,14 +123,59 @@ describe("<RoomListItemView />", () => {
         expect(screen.queryByTestId("notification-decoration")).toBeNull();
     });
 
-    it("should show hover menu when showMoreOptionsMenu is true", () => {
+    it("should show hover menu when showMoreOptionsMenu is true", async () => {
+        const user = userEvent.setup();
         const { container } = render(<WithHoverMenu />);
+
+        await user.hover(screen.getByRole("option"));
         expect(container.querySelector('[aria-label="More Options"]')).not.toBeNull();
     });
 
-    it("should hide hover menu when showMoreOptionsMenu is false", () => {
+    it("should hide hover menu when showMoreOptionsMenu is false", async () => {
+        const user = userEvent.setup();
         const { container } = render(<WithoutHoverMenu />);
+
+        await user.hover(screen.getByRole("option"));
         expect(container.querySelector('[aria-label="More Options"]')).toBeNull();
+    });
+
+    it("only mounts the hover menu while the row is hovered", async () => {
+        // Each hover menu button carries a label tooltip, and label tooltips keep their floating
+        // element in the DOM while closed, so every mounted one runs a Floating-UI positioning loop.
+        // Mounting them for a whole viewport of rows is what makes scrolling the room list janky.
+        const user = userEvent.setup();
+        const { container } = render(<WithHoverMenu />);
+        const option = screen.getByRole("option");
+        expect(container.querySelector('[aria-label="More Options"]')).toBeNull();
+
+        await user.hover(option);
+        expect(container.querySelector('[aria-label="More Options"]')).not.toBeNull();
+
+        await user.unhover(option);
+        await waitFor(() => expect(container.querySelector('[aria-label="More Options"]')).toBeNull());
+    });
+
+    it("keeps the hover menu mounted while its popover is open and the pointer leaves", async () => {
+        const user = userEvent.setup();
+        const { container } = render(<WithHoverMenu />);
+        const option = screen.getByRole("option");
+
+        await user.hover(option);
+        // Opened with a raw pointerdown, which is what the menu trigger listens for. Driving this
+        // through user-event's pointer emulation instead would fire mouseout on the row with a null
+        // relatedTarget as the pointer moves onto the child button, unmounting the trigger; a real
+        // browser reports the button as relatedTarget and never fires the leave.
+        fireEvent.pointerDown(container.querySelector('[aria-label="More Options"]')!, {
+            button: 0,
+            pointerType: "mouse",
+        });
+        await screen.findByRole("menu");
+
+        // The popover renders in a portal, so the pointer is no longer over the row while the menu
+        // is open. Unmounting the trigger underneath it would tear out the menu the user just opened.
+        fireEvent.mouseLeave(option);
+        expect(container.querySelector('[aria-label="More Options"]')).not.toBeNull();
+        expect(screen.getByRole("menu")).toBeInTheDocument();
     });
 
     it("reveals the hover menu on keyboard focus and clears it when focus leaves", async () => {

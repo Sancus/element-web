@@ -188,6 +188,14 @@ export const RoomListItemView = memo(function RoomListItemView({
     // browser's own :focus-visible determination) and keep it set until focus leaves the row entirely.
     const [keyboardActive, setKeyboardActive] = useState(false);
 
+    // The hover menu is mounted on demand rather than rendered for every row and hidden with CSS. Each
+    // of its icon buttons carries a label tooltip, and label tooltips keep their floating element in the
+    // DOM even while closed, so each one runs a Floating-UI `autoUpdate` loop for as long as the row
+    // exists. With a viewport of rows that recycle as you scroll, that means constantly attaching and
+    // detaching scroll listeners and resize observers, and a forced layout per row per frame.
+    const [hovered, setHovered] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+
     useEffect(() => {
         if (isFocused) {
             internalRef.current?.focus({ preventScroll: true });
@@ -236,11 +244,22 @@ export const RoomListItemView = memo(function RoomListItemView({
                 onClick={vm.onOpenRoom}
                 onFocus={onItemFocus}
                 onBlur={onItemBlur}
+                // Deliberately mousemove rather than mouseenter: as the list scrolls under a stationary
+                // cursor the browser fires enter/leave for each row that passes beneath it, which would
+                // mount and tear down a hover menu every frame. mousemove only fires on real pointer
+                // movement, so scrolling costs nothing and reaching for the buttons still reveals them.
+                onMouseMove={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
                 tabIndex={isFocused ? 0 : -1}
                 aria-selected={props.role === "option" ? isSelected : undefined}
                 {...props}
             >
-                <RoomListItemContent vm={vm} renderAvatar={renderAvatar} />
+                <RoomListItemContent
+                    vm={vm}
+                    renderAvatar={renderAvatar}
+                    showHoverMenu={hovered || keyboardActive || menuOpen}
+                    onMenuOpenChange={setMenuOpen}
+                />
             </Flex>
         </RoomListItemContextMenu>
     );
