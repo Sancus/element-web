@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import { render, screen } from "jest-matrix-react";
+import { fireEvent, render, screen } from "jest-matrix-react";
 import { mocked } from "jest-mock";
 
 import { RoomAvatarView } from "../../../../../src/components/views/avatars/RoomAvatarView";
@@ -96,5 +96,37 @@ describe("<RoomAvatarView />", () => {
 
         expect(screen.getByLabelText(label)).toBeInTheDocument();
         expect(asFragment()).toMatchSnapshot();
+    });
+
+    // A mounted Tooltip keeps its floating element in the DOM while closed and runs a Floating-UI
+    // `autoUpdate` loop for as long as it lives, which is ruinous across a virtualised list holding
+    // dozens of rows. Mounting it lazily is only safe if the icon keeps its own accessible name.
+    describe("badge tooltip gating", () => {
+        const LABEL = "This room is public";
+
+        beforeEach(() => {
+            mocked(useRoomAvatarViewModel).mockReturnValue({
+                ...defaultValue,
+                badgeDecoration: AvatarBadgeDecoration.PublicRoom,
+            });
+        });
+
+        it("labels the decoration without mounting the tooltip", () => {
+            const { container } = render(<RoomAvatarView room={room} />);
+
+            expect(screen.getByLabelText(LABEL)).toBeInTheDocument();
+            expect(container.querySelector(".mx_RoomAvatarView_icon")).not.toHaveAttribute("aria-labelledby");
+        });
+
+        it("mounts the tooltip only while the pointer is over the avatar", () => {
+            const { container } = render(<RoomAvatarView room={room} />);
+            const avatar = container.querySelector(".mx_RoomAvatarView")!;
+
+            fireEvent.mouseMove(avatar);
+            expect(container.querySelector(".mx_RoomAvatarView_icon")).toHaveAttribute("aria-labelledby");
+
+            fireEvent.mouseLeave(avatar);
+            expect(container.querySelector(".mx_RoomAvatarView_icon")).not.toHaveAttribute("aria-labelledby");
+        });
     });
 });

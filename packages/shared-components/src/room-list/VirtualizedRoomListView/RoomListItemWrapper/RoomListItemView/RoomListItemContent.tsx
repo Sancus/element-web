@@ -26,6 +26,16 @@ export interface RoomListItemContentProps {
     renderAvatar: (room: Room) => ReactNode;
     /** Whether the item is being dragged */
     isDragging?: boolean;
+    /**
+     * Whether to mount the hover menu. The menu is only mounted while the row is hovered, keyboard
+     * focused, or has an open popover, because each of its icon buttons carries a label tooltip whose
+     * floating element stays in the DOM permanently and runs a Floating-UI `autoUpdate` loop. Mounting
+     * those for every visible row makes scrolling attach and tear down scroll listeners and resize
+     * observers for the whole viewport on every frame.
+     */
+    showHoverMenu?: boolean;
+    /** Reports open state of either hover menu popover to the row */
+    onMenuOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -37,6 +47,8 @@ export const RoomListItemContent = memo(function RoomListItemContent({
     vm,
     renderAvatar,
     isDragging = false,
+    showHoverMenu = false,
+    onMenuOpenChange,
 }: RoomListItemContentProps): JSX.Element {
     const item = useViewModel(vm);
 
@@ -69,11 +81,12 @@ export const RoomListItemContent = memo(function RoomListItemContent({
                         </Text>
                     )}
                 </div>
-                {!isDragging && (item.showMoreOptionsMenu || item.showNotificationMenu) && (
+                {!isDragging && showHoverMenu && (item.showMoreOptionsMenu || item.showNotificationMenu) && (
                     <RoomListItemHoverMenu
                         showMoreOptionsMenu={item.showMoreOptionsMenu}
                         showNotificationMenu={item.showNotificationMenu}
                         vm={vm}
+                        onMenuOpenChange={onMenuOpenChange}
                     />
                 )}
 
