@@ -5,7 +5,7 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import React, { memo, type JSX } from "react";
+import React, { memo, useCallback, useState, type JSX } from "react";
 import { type Room } from "matrix-js-sdk/src/matrix";
 import PublicIcon from "@vector-im/compound-design-tokens/assets/web/icons/public";
 import VideoIcon from "@vector-im/compound-design-tokens/assets/web/icons/video-call-solid";
@@ -35,6 +35,16 @@ interface RoomAvatarViewProps {
  */
 export const RoomAvatarView = memo(function RoomAvatarView({ room }: RoomAvatarViewProps): JSX.Element {
     const vm = useRoomAvatarViewModel(room);
+    // Tooltip keeps its floating element in the DOM while closed, so each one runs a Floating-UI
+    // `autoUpdate` loop — scroll and resize listeners on every overflow ancestor — for as long as the
+    // row lives. Mounting it only while the pointer is over the avatar keeps those loops off the rows
+    // the virtualised list holds off-screen. `onMouseMove` rather than `onMouseEnter` because
+    // scrolling synthesises enter events under a stationary pointer, which would defeat the gating.
+    // The decoration icons carry their own `aria-label`, so the accessible name survives unmounting.
+    const [pointerOver, setPointerOver] = useState(false);
+    const onMouseMove = useCallback(() => setPointerOver(true), []);
+    const onMouseLeave = useCallback(() => setPointerOver(false), []);
+
     // No decoration, we just show the avatar
     if (!vm.badgeDecoration) return <RoomAvatar size="32px" room={room} />;
 
@@ -49,9 +59,9 @@ export const RoomAvatarView = memo(function RoomAvatarView({ room }: RoomAvatarV
             : "mx_RoomAvatarView_RoomAvatar_icon";
 
     return (
-        <Flex className="mx_RoomAvatarView">
+        <Flex className="mx_RoomAvatarView" onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}>
             <RoomAvatar className={classNames("mx_RoomAvatarView_RoomAvatar", maskClass)} size="32px" room={room} />
-            {label ? <Tooltip label={label}>{icon}</Tooltip> : icon}
+            {label && pointerOver ? <Tooltip label={label}>{icon}</Tooltip> : icon}
         </Flex>
     );
 });
