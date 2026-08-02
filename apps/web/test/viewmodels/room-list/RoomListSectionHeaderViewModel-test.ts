@@ -19,7 +19,12 @@ import SettingsStore from "../../../src/settings/SettingsStore";
 import { SettingLevel } from "../../../src/settings/SettingLevel";
 import RoomListStoreV3 from "../../../src/stores/room-list-v3/RoomListStoreV3";
 import { DefaultTagID } from "../../../src/stores/room-list-v3/skip-list/tag";
-import { CHATS_TAG, type SectionExpansionState } from "../../../src/stores/room-list-v3/section";
+import {
+    CHATS_TAG,
+    type SectionExpansionState,
+    type SectionSortingState,
+} from "../../../src/stores/room-list-v3/section";
+import { SortingAlgorithm } from "../../../src/stores/room-list-v3/skip-list/sorters";
 
 describe("RoomListSectionHeaderViewModel", () => {
     let onToggleExpanded: jest.Mock;
@@ -27,16 +32,19 @@ describe("RoomListSectionHeaderViewModel", () => {
     // In-memory backing store shared between the getValue/setValue mocks so that
     // persisted expansion state round-trips within a test.
     let sectionExpansionState: SectionExpansionState;
+    let sectionSortingState: SectionSortingState;
 
     beforeEach(() => {
         onToggleExpanded = jest.fn();
         matrixClient = createTestClient();
         sectionExpansionState = {};
+        sectionSortingState = {};
         jest.spyOn(SettingsStore, "watchSetting").mockReturnValue("watcher-id");
         jest.spyOn(SettingsStore, "unwatchSetting").mockReturnValue(undefined);
         jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
             if (setting === "RoomList.OrderedCustomSections") return [];
             if (setting === "RoomList.SectionExpansionState") return sectionExpansionState;
+            if (setting === "RoomList.SectionSorting") return sectionSortingState;
             return null;
         });
         jest.spyOn(SettingsStore, "setValue").mockImplementation(async (setting, _roomId, _level, value) => {
@@ -158,6 +166,21 @@ describe("RoomListSectionHeaderViewModel", () => {
     });
 
     describe("displaySectionMenu", () => {
+        it.each([DefaultTagID.Favourite, DefaultTagID.LowPriority, CHATS_TAG, "element.io.section.custom"])(
+            "should be true for tag %s so every section can be sorted",
+            (tag) => {
+                const vm = new RoomListSectionHeaderViewModel({
+                    tag,
+                    title: "Section",
+                    spaceId: "!space:server",
+                    onToggleExpanded,
+                });
+                expect(vm.getSnapshot().displaySectionMenu).toBe(true);
+            },
+        );
+    });
+
+    describe("canEditSection", () => {
         it.each([
             [DefaultTagID.Favourite, false],
             [DefaultTagID.LowPriority, false],
@@ -170,7 +193,7 @@ describe("RoomListSectionHeaderViewModel", () => {
                 spaceId: "!space:server",
                 onToggleExpanded,
             });
-            expect(vm.getSnapshot().displaySectionMenu).toBe(expected);
+            expect(vm.getSnapshot().canEditSection).toBe(expected);
         });
     });
 
@@ -299,6 +322,55 @@ describe("RoomListSectionHeaderViewModel", () => {
 
             await vm.removeSection();
             expect(removeSectionSpy).toHaveBeenCalledWith(tag, false);
+        });
+    });
+
+    describe("sortOption", () => {
+        const tag = "element.io.section.custom";
+
+        function createViewModel(): RoomListSectionHeaderViewModel {
+            return new RoomListSectionHeaderViewModel({
+                tag,
+                title: "Section",
+                spaceId: "!space:server",
+                onToggleExpanded,
+            });
+        }
+
+        it.each([
+            [undefined, "default"],
+            [SortingAlgorithm.Recency, "recent"],
+            [SortingAlgorithm.Unread, "unread-first"],
+            [SortingAlgorithm.Alphabetic, "alphabetical"],
+        ])("seeds the snapshot with %s as %s", (algorithm, expected) => {
+            if (algorithm) sectionSortingState = { [tag]: algorithm };
+
+            expect(createViewModel().getSnapshot().sortOption).toBe(expected);
+        });
+
+        it("reports default rather than the algorithm the list happens to use", () => {
+            // Nothing is stored for this section, so it follows the list-wide sort. The menu must
+            // still show Global default, not whatever the list is currently sorted by.
+            jest.spyOn(RoomListStoreV3.instance, "activeSortAlgorithm", "get").mockReturnValue(
+                SortingAlgorithm.Alphabetic,
+            );
+
+            expect(createViewModel().getSnapshot().sortOption).toBe("default");
+        });
+
+        it.each([
+            ["recent", SortingAlgorithm.Recency],
+            ["unread-first", SortingAlgorithm.Unread],
+            ["alphabetical", SortingAlgorithm.Alphabetic],
+            ["default", undefined],
+        ] as const)("maps %s onto %s when selected", async (option, algorithm) => {
+            const resortSectionSpy = jest.spyOn(RoomListStoreV3.instance, "resortSection").mockResolvedValue(undefined);
+            const vm = createViewModel();
+
+            await vm.setSortOption(option);
+
+            expect(resortSectionSpy).toHaveBeenCalledWith(tag, algorithm);
+            expect(vm.getSnapshot().sortOption).toBe(option);
         });
     });
 

@@ -7,11 +7,13 @@
 
 import { type Room } from "matrix-js-sdk/src/matrix";
 import { CallType } from "matrix-js-sdk/src/webrtc/call";
+import { logger } from "matrix-js-sdk/src/logger";
 import {
     BaseViewModel,
     type NotificationDecorationData,
     type RoomListSectionHeaderActions,
     type RoomListSectionHeaderViewSnapshot,
+    type SectionSortOption,
 } from "@element-hq/web-shared-components";
 
 import { RoomNotificationStateStore } from "../../stores/notifications/RoomNotificationStateStore";
@@ -22,11 +24,13 @@ import RoomListStoreV3 from "../../stores/room-list-v3/RoomListStoreV3";
 import {
     CHATS_TAG,
     getCustomSectionData,
+    getSectionSorting,
     isCustomSectionTag,
     isDefaultSectionTag,
     isSectionExpanded,
     setSectionExpanded,
 } from "../../stores/room-list-v3/section";
+import { SortingAlgorithm } from "../../stores/room-list-v3/skip-list/sorters";
 import PosthogTrackers from "../../PosthogTrackers";
 import { CallStore, CallStoreEvent } from "../../stores/CallStore";
 import { type Call, CallEvent } from "../../models/Call";
@@ -63,8 +67,10 @@ export class RoomListSectionHeaderViewModel
             title: props.title,
             isExpanded: isSectionExpanded(props.spaceId, props.tag),
             isUnread: false,
-            displaySectionMenu: !isDefaultSection,
+            displaySectionMenu: true,
+            canEditSection: !isDefaultSection,
             canBeReordered: !isDefaultSection || props.tag === CHATS_TAG,
+            sortOption: toSectionSortOption(getSectionSorting(props.tag)),
         });
         const sectionWatherRef = SettingsStore.watchSetting("RoomList.CustomSectionData", null, () =>
             this.onCustomSectionDataChange(),
@@ -273,4 +279,53 @@ export class RoomListSectionHeaderViewModel
 
         PosthogTrackers.trackInteraction("WebDeleteSection");
     };
+
+    public setSortOption = async (option: SectionSortOption): Promise<void> => {
+        this.snapshot.merge({ sortOption: option });
+        await RoomListStoreV3.instance.resortSection(this.props.tag, toSortingAlgorithm(option));
+    };
+}
+
+/**
+ * Map a persisted section override onto the option shown in the menu.
+ *
+ * A section without an override reports `"default"` rather than the algorithm it happens to be
+ * following, so that "pinned to latest activity" and "following a list that is sorted by latest
+ * activity" stay distinguishable in the menu.
+ */
+function toSectionSortOption(algorithm: SortingAlgorithm | undefined): SectionSortOption {
+    switch (algorithm) {
+        case SortingAlgorithm.Alphabetic:
+            return "alphabetical";
+        case SortingAlgorithm.Recency:
+            return "recent";
+        case SortingAlgorithm.Unread:
+            return "unread-first";
+        case undefined:
+            return "default";
+        default: {
+            // Exhaustive at compile time, but the value is read back from device settings, so an
+            // unrecognised one is possible and is treated as no override.
+            const unhandled: never = algorithm;
+            logger.info(`RoomListSectionHeaderViewModel: unknown section sorting algorithm ${unhandled}`);
+            return "default";
+        }
+    }
+}
+
+function toSortingAlgorithm(option: SectionSortOption): SortingAlgorithm | undefined {
+    switch (option) {
+        case "alphabetical":
+            return SortingAlgorithm.Alphabetic;
+        case "recent":
+            return SortingAlgorithm.Recency;
+        case "unread-first":
+            return SortingAlgorithm.Unread;
+        case "default":
+            return undefined;
+        default: {
+            const unhandled: never = option;
+            throw new Error(`Unhandled section sort option ${unhandled}`);
+        }
+    }
 }

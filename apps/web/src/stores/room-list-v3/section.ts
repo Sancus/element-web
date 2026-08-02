@@ -15,6 +15,7 @@ import { RemoveSectionDialog } from "../../components/views/dialogs/RemoveSectio
 import { DefaultTagID, type TagID } from "./skip-list/tag";
 import { isMetaSpace, MetaSpace, type SpaceKey } from "../spaces";
 import { SDKContextClass } from "../../contexts/SDKContextClass.ts";
+import { type SortingAlgorithm } from "./skip-list/sorters";
 
 /**
  * A synthetic tag used to represent the "Chats" section, which contains
@@ -160,6 +161,36 @@ export async function setSectionExpanded(spaceId: string, tag: string, expanded:
         [spaceId]: { ...state[spaceId], [tag]: expanded },
     };
     await SettingsStore.setValue("RoomList.SectionExpansionState", null, SettingLevel.DEVICE, newState);
+}
+
+/**
+ * Persisted per-section sort overrides, keyed by section tag. A tag with no entry follows the
+ * list-wide `RoomList.preferredSorting` order.
+ */
+export type SectionSortingState = { [sectionTag: string]: SortingAlgorithm };
+
+/**
+ * Returns the sorting algorithm the given section is pinned to, or undefined when it follows the
+ * list-wide order.
+ * @param tag - The tag of the section.
+ */
+export function getSectionSorting(tag: string): SortingAlgorithm | undefined {
+    return SettingsStore.getValue("RoomList.SectionSorting")[tag];
+}
+
+/**
+ * Persists the sorting algorithm of a section at the device level.
+ * @param tag - The tag of the section.
+ * @param algorithm - The algorithm to pin the section to, or undefined to make it follow the
+ *     list-wide order again.
+ */
+export async function setSectionSorting(tag: string, algorithm: SortingAlgorithm | undefined): Promise<void> {
+    const state = SettingsStore.getValue("RoomList.SectionSorting");
+    const newState: SectionSortingState = { ...state };
+    // Delete rather than store undefined so that a section back on the list-wide order leaves no residue
+    if (algorithm === undefined) delete newState[tag];
+    else newState[tag] = algorithm;
+    await SettingsStore.setValue("RoomList.SectionSorting", null, SettingLevel.DEVICE, newState);
 }
 
 /**

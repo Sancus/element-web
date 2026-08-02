@@ -152,7 +152,9 @@ export const createGetSectionHeaderViewModel = (
             isExpanded: true,
             isUnread: false,
             displaySectionMenu: false,
+            canEditSection: false,
             canBeReordered: true,
+            sortOption: "default",
         };
         const vm = new MockViewModel(snapshot) as unknown as RoomListSectionHeaderViewModel;
         Object.assign(vm, {

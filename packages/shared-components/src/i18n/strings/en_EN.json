@@ -187,6 +187,7 @@
         "sort_type": {
             "activity": "Latest activity",
             "atoz": "A-Z",
+            "default": "Global default",
             "unread_first": "Unread first"
         },
         "space_menu": {

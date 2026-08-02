@@ -23,9 +23,10 @@ const RoomListSectionHeaderDragOverlayWrapperImpl = ({
     onClick,
     editSection,
     removeSection,
+    setSortOption,
     ...rest
 }: RoomListSectionHeaderDragOverlayProps): JSX.Element => {
-    const vm = useMockedViewModel(rest, { onClick, editSection, removeSection });
+    const vm = useMockedViewModel(rest, { onClick, editSection, removeSection, setSortOption });
     return <RoomListSectionHeaderDragOverlayView vm={vm} />;
 };
 const RoomListSectionHeaderDragOverlayWrapper = withViewDocs(
@@ -50,10 +51,13 @@ const meta = {
         isExpanded: true,
         isUnread: false,
         displaySectionMenu: true,
+        canEditSection: true,
         canBeReordered: true,
+        sortOption: "default",
         onClick: fn(),
         editSection: fn(),
         removeSection: fn(),
+        setSortOption: fn(),
     },
 } satisfies Meta<typeof RoomListSectionHeaderDragOverlayWrapper>;
 

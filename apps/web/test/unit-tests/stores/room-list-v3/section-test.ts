@@ -15,14 +15,17 @@ import {
     deleteSection,
     getCustomSectionData,
     getOrderedCustomSections,
+    getSectionSorting,
     isDefaultSectionTag,
     isSectionExpanded,
     setSectionExpanded,
+    setSectionSorting,
     CHATS_TAG,
     CUSTOM_SECTION_TAG_PREFIX,
     isSectionTag,
     reorderSection,
 } from "../../../../src/stores/room-list-v3/section";
+import { SortingAlgorithm } from "../../../../src/stores/room-list-v3/skip-list/sorters";
 import { SettingLevel } from "../../../../src/settings/SettingLevel";
 import { CreateSectionDialog } from "../../../../src/components/views/dialogs/CreateSectionDialog";
 import { RemoveSectionDialog } from "../../../../src/components/views/dialogs/RemoveSectionDialog";
@@ -188,6 +191,50 @@ describe("section", () => {
             expect(setValueSpy).toHaveBeenCalledWith("RoomList.SectionExpansionState", null, SettingLevel.DEVICE, {
                 [spaceId]: { [tag]: true },
             });
+        });
+    });
+
+    describe("getSectionSorting", () => {
+        const tag = "element.io.section.abc";
+
+        it.each([
+            { value: {}, result: undefined },
+            { value: { "other.tag": SortingAlgorithm.Alphabetic }, result: undefined },
+            { value: { [tag]: SortingAlgorithm.Alphabetic }, result: SortingAlgorithm.Alphabetic },
+        ])("returns $result when value=$value", ({ value, result }) => {
+            jest.spyOn(SettingsStore, "getValue").mockReturnValue(value);
+            expect(getSectionSorting(tag)).toBe(result);
+        });
+    });
+
+    describe("setSectionSorting", () => {
+        const tag = "element.io.section.abc";
+        const otherTag = "element.io.section.other";
+
+        it("persists the algorithm at the device level, keeping other sections", async () => {
+            jest.spyOn(SettingsStore, "getValue").mockReturnValue({ [otherTag]: SortingAlgorithm.Recency });
+            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockResolvedValue(undefined);
+
+            await setSectionSorting(tag, SortingAlgorithm.Alphabetic);
+
+            expect(setValueSpy).toHaveBeenCalledWith("RoomList.SectionSorting", null, SettingLevel.DEVICE, {
+                [otherTag]: SortingAlgorithm.Recency,
+                [tag]: SortingAlgorithm.Alphabetic,
+            });
+        });
+
+        it("deletes the key rather than storing undefined when the override is cleared", async () => {
+            jest.spyOn(SettingsStore, "getValue").mockReturnValue({
+                [tag]: SortingAlgorithm.Alphabetic,
+                [otherTag]: SortingAlgorithm.Recency,
+            });
+            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockResolvedValue(undefined);
+
+            await setSectionSorting(tag, undefined);
+
+            const stored = setValueSpy.mock.calls[0][3] as Record<string, SortingAlgorithm>;
+            expect(stored).toEqual({ [otherTag]: SortingAlgorithm.Recency });
+            expect(Object.keys(stored)).not.toContain(tag);
         });
     });
 

@@ -8,7 +8,7 @@
 import React, { memo, type JSX, useState } from "react";
 import ChevronRightIcon from "@vector-im/compound-design-tokens/assets/web/icons/chevron-right";
 import classNames from "classnames";
-import { IconButton, Menu, MenuItem } from "@vector-im/compound-web";
+import { IconButton, Menu, MenuItem, MenuTitle, RadioMenuItem } from "@vector-im/compound-web";
 import { OverflowHorizontalIcon, EditIcon, DeleteIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { useViewModel } from "../../../core/viewmodel";
@@ -71,6 +71,7 @@ interface MenuComponentProps {
 
 function MenuComponent({ vm }: MenuComponentProps): JSX.Element {
     const [open, setOpen] = useState(false);
+    const { canEditSection, sortOption } = useViewModel(vm);
 
     return (
         <Menu
@@ -87,29 +88,61 @@ function MenuComponent({ vm }: MenuComponentProps): JSX.Element {
                     size="24px"
                     style={{ padding: "2px" }}
                     color="var(--cpd-color-icon-primary)"
+                    // The trigger sits inside the header button, which toggles the section on click.
+                    // Radix opens the menu on pointerdown, so swallowing the click here is safe.
+                    onClick={(evt) => evt.stopPropagation()}
                 >
                     <OverflowHorizontalIcon fill="var(--cpd-color-icon-primary)" />
                 </IconButton>
             }
         >
             <div
-                // We don't want keyboard navigation events to bubble up to the ListView changing the focused item
+                // We don't want keyboard navigation events to bubble up to the ListView changing the focused item.
+                // The menu is portaled but React still propagates its events along the React tree, so a click
+                // inside it would otherwise reach the header button and toggle the section. RadioMenuItem takes
+                // no onClick of its own, hence stopping here rather than per item.
                 onKeyDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
             >
-                <MenuItem
-                    hideChevron={true}
-                    Icon={EditIcon}
-                    label={_t("room_list|section_header|edit_section")}
-                    onSelect={() => vm.editSection()}
-                    onClick={(evt) => evt.stopPropagation()}
+                <MenuTitle title={_t("room_list|sort")} />
+                <RadioMenuItem
+                    label={_t("room_list|sort_type|default")}
+                    checked={sortOption === "default"}
+                    onSelect={() => vm.setSortOption("default")}
                 />
-                <MenuItem
-                    hideChevron={true}
-                    Icon={DeleteIcon}
-                    label={_t("room_list|section_header|remove_section")}
-                    onSelect={() => vm.removeSection()}
-                    onClick={(evt) => evt.stopPropagation()}
+                <RadioMenuItem
+                    label={_t("room_list|sort_type|activity")}
+                    checked={sortOption === "recent"}
+                    onSelect={() => vm.setSortOption("recent")}
                 />
+                <RadioMenuItem
+                    label={_t("room_list|sort_type|unread_first")}
+                    checked={sortOption === "unread-first"}
+                    onSelect={() => vm.setSortOption("unread-first")}
+                />
+                <RadioMenuItem
+                    label={_t("room_list|sort_type|atoz")}
+                    checked={sortOption === "alphabetical"}
+                    onSelect={() => vm.setSortOption("alphabetical")}
+                />
+                {canEditSection && (
+                    <>
+                        <MenuItem
+                            hideChevron={true}
+                            Icon={EditIcon}
+                            label={_t("room_list|section_header|edit_section")}
+                            onSelect={() => vm.editSection()}
+                            onClick={(evt) => evt.stopPropagation()}
+                        />
+                        <MenuItem
+                            hideChevron={true}
+                            Icon={DeleteIcon}
+                            label={_t("room_list|section_header|remove_section")}
+                            onSelect={() => vm.removeSection()}
+                            onClick={(evt) => evt.stopPropagation()}
+                        />
+                    </>
+                )}
             </div>
         </Menu>
     );
