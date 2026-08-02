@@ -1,0 +1,208 @@
+# Builds unsigned Element Desktop packages carrying the room list scroll fix and publishes them
+# to a GitHub Release.
+#
+# Separate from the upstream build_desktop_* workflows: those check out element-hq/element-web by
+# name (so they ignore fork changes) and sign via eSigner / Apple notarisation.
+#
+# Targets match what Element normally ships, minus the installers that only make sense signed:
+#   Linux    tar.gz, deb
+#   macOS    dmg, zip  (universal)
+#   Windows  zip       (portable)
+#
+# Native modules (matrix-seshat, encrypted search) are skipped. The app treats the module as
+# absent, so .hak/hakModules only has to exist. That avoids Rust/NASM/TCL/sqlcipher setup on
+# every platform.
+
+name: Room list fix - desktop builds
+
+on:
+    workflow_dispatch:
+    push:
+        tags:
+            - "roomlist-fix-*"
+
+permissions:
+    contents: write # to create the release
+
+jobs:
+    # Build the web app once and share it with every platform, rather than rebuilding per runner.
+    prepare:
+        name: Prepare webapp.asar
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v7
+              with:
+                  node-version-file: apps/desktop/.node-version
+                  cache: pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build web app
+              working-directory: apps/web
+              run: pnpm build
+              env:
+                  NX_DAEMON: "false"
+
+            - name: Pack webapp.asar
+              working-directory: apps/desktop
+              run: |
+                  set -euo pipefail
+                  rm -rf webapp webapp.asar
+                  cp -r ../web/webapp webapp
+
+                  # The app will not start without a config. Strip update_base_url so these builds
+                  # never auto-update themselves back to official Element and drop the fix.
+                  node -e '
+                    const fs = require("fs");
+                    const config = JSON.parse(fs.readFileSync("element.io/release/config.json", "utf8"));
+                    delete config.update_base_url;
+                    fs.writeFileSync("webapp/config.json", JSON.stringify(config, null, 4));
+                  '
+
+                  node -e 'require("@electron/asar").createPackage("webapp","webapp.asar").then(()=>console.log("packed webapp.asar"))'
+
+            # Cheaper and more reliable than checking each platform's unpacked output, and it fails
+            # before any of the three builds start.
+            - name: Verify the fix is in webapp.asar
+              working-directory: apps/desktop
+              run: |
+                  node -e '
+                    const asar = require("@electron/asar");
+                    const hit = asar.listPackage("webapp.asar")
+                      .filter((f) => f.endsWith(".js"))
+                      .some((f) => {
+                        const buf = asar.extractFile("webapp.asar", f.replace(/^[\\/]/, ""));
+                        return buf.includes("mx_RoomAvatarView") && buf.includes("onMouseLeave");
+                      });
+                    if (!hit) throw new Error("gated avatar tooltip not found in webapp.asar");
+                    console.log("fix verified in webapp.asar");
+                  '
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: webapp-asar
+                  path: apps/desktop/webapp.asar
+                  retention-days: 1
+
+    build:
+        name: Build ${{ matrix.name }}
+        needs: prepare
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    # Matching upstream's runner: building on a newer Ubuntu would raise the glibc
+                    # requirement of the resulting packages.
+                    - name: linux-x64
+                      runs-on: ubuntu-22.04
+                      args: -l tar.gz deb
+                    - name: macos-universal
+                      runs-on: macos-latest
+                      args: -m dmg zip --universal
+                    - name: windows-x64
+                      runs-on: windows-latest
+                      args: -w zip
+        runs-on: ${{ matrix.runs-on }}
+        steps:
+            # nx misbehaves with CRLF checkouts: https://github.com/nrwl/nx/issues/35828
+            - name: Configure git line endings
+              if: runner.os == 'Windows'
+              run: |
+                  git config --system core.autocrlf false
+                  git config --system core.eol lf
+
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v7
+              with:
+                  node-version-file: apps/desktop/.node-version
+                  cache: pnpm
+
+            - name: Install dependencies
+              working-directory: apps/desktop
+              run: pnpm install --frozen-lockfile --filter element-desktop
+
+            - uses: actions/download-artifact@v8
+              with:
+                  name: webapp-asar
+                  path: apps/desktop/
+
+            # https://github.com/electron-userland/electron-builder/issues/9511
+            - name: Work around electron-builder dmg dependency
+              if: runner.os == 'macOS'
+              run: sudo pip3 install --break-system-packages pyobjc-framework-Quartz
+
+            - name: Build package
+              working-directory: apps/desktop
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  # electron-builder maps .hak/hakModules to node_modules in the bundle.
+                  mkdir -p .hak/hakModules
+                  pnpm exec tsc
+                  node scripts/copy-res.ts
+                  pnpm exec electron-builder ${{ matrix.args }} --publish never
+              env:
+                  # Without this electron-builder hunts for a keychain identity and fails the build.
+                  # CSC_LINK is deliberately left unset rather than empty; empty upsets it.
+                  CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+            - name: Collect distributables
+              shell: bash
+              working-directory: apps/desktop
+              run: |
+                  set -euo pipefail
+                  mkdir -p out
+                  # Only the packaged artifacts; skip the unpacked trees and builder metadata.
+                  find dist -maxdepth 1 -type f \
+                      \( -name '*.dmg' -o -name '*.zip' -o -name '*.deb' -o -name '*.tar.gz' \) \
+                      -exec cp {} out/ \;
+                  ls -la out
+                  test -n "$(ls -A out)" || { echo "no distributables produced"; exit 1; }
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: dist-${{ matrix.name }}
+                  path: apps/desktop/out/*
+                  retention-days: 14
+
+    release:
+        name: Publish release
+        needs: build
+        if: github.ref_type == 'tag'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/download-artifact@v8
+              with:
+                  pattern: dist-*
+                  path: dist
+                  merge-multiple: true
+
+            - name: Publish
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  TAG: ${{ github.ref_name }}
+              run: |
+                  set -euo pipefail
+                  ls -la dist
+                  gh release create "$TAG" dist/* \
+                    --repo "$GITHUB_REPOSITORY" \
+                    --title "Room list scroll fix - $TAG" \
+                    --notes 'Unofficial build of Element Desktop with the room list scroll fix.
+
+                  These builds are **unsigned**:
+
+                  - **Windows** SmartScreen will warn on first run.
+                  - **macOS** Gatekeeper will refuse to open it. Clear the quarantine flag with `xattr -dr com.apple.quarantine /Applications/Element.app`.
+                  - **Linux** no signature to check.
+
+                  Auto-update is disabled, so these will never replace themselves with official Element. Run with `--profile roomlist-fix` to keep the data directory separate from an existing Element install.'
