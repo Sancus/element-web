@@ -202,8 +202,8 @@ jobs:
                   ls -la dist
                   gh release create "$TAG" dist/* \
                     --repo "$GITHUB_REPOSITORY" \
-                    --title "Room list scroll fix - $TAG" \
-                    --notes 'Unofficial build of Element Desktop with the room list scroll fix.
+                    --title "Room list fixes - $TAG" \
+                    --notes 'Unofficial build of Element Desktop with the room list scroll fix and per-section sorting (each section'"'"'s menu can pin Latest activity / Unread first / A-Z, or follow the list-wide order).
 
                   These builds are **unsigned**:
 
