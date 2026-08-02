@@ -90,6 +90,15 @@ exports[`RoomListHeaderView > renders collapse button 1`] = `
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-2"
+          >
+            Room Options
+          </span>
+        </span>
         <button
           aria-labelledby="react-use-id-4"
           class="_icon-button_1215g_8"
@@ -117,6 +126,15 @@ exports[`RoomListHeaderView > renders collapse button 1`] = `
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-4"
+          >
+            Collapse all sections
+          </span>
+        </span>
         <button
           aria-disabled="false"
           aria-expanded="false"
@@ -150,6 +168,15 @@ exports[`RoomListHeaderView > renders collapse button 1`] = `
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-5"
+          >
+            New conversation
+          </span>
+        </span>
       </div>
     </div>
   </header>
@@ -246,6 +273,15 @@ exports[`RoomListHeaderView > renders expand button 1`] = `
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-2"
+          >
+            Room Options
+          </span>
+        </span>
         <button
           aria-labelledby="react-use-id-4"
           class="_icon-button_1215g_8"
@@ -273,6 +309,15 @@ exports[`RoomListHeaderView > renders expand button 1`] = `
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-4"
+          >
+            Expand all sections
+          </span>
+        </span>
         <button
           aria-disabled="false"
           aria-expanded="false"
@@ -306,6 +351,15 @@ exports[`RoomListHeaderView > renders expand button 1`] = `
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-5"
+          >
+            New conversation
+          </span>
+        </span>
       </div>
     </div>
   </header>
@@ -402,6 +456,15 @@ exports[`RoomListHeaderView > renders the default state 1`] = `
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-2"
+          >
+            Room Options
+          </span>
+        </span>
         <button
           aria-disabled="false"
           aria-expanded="false"
@@ -435,6 +498,15 @@ exports[`RoomListHeaderView > renders the default state 1`] = `
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-4"
+          >
+            New conversation
+          </span>
+        </span>
       </div>
     </div>
   </header>
@@ -500,6 +572,15 @@ exports[`RoomListHeaderView > renders without space menu 1`] = `
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-1"
+          >
+            Room Options
+          </span>
+        </span>
         <button
           aria-disabled="false"
           aria-expanded="false"
@@ -533,6 +614,15 @@ exports[`RoomListHeaderView > renders without space menu 1`] = `
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-3"
+          >
+            New conversation
+          </span>
+        </span>
       </div>
     </div>
   </header>

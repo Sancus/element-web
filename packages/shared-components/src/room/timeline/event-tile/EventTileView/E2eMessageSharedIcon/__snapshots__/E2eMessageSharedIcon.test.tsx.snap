@@ -27,6 +27,15 @@ exports[`E2eMessageSharedIconView > renders an unknown user tooltip state 1`] = 
       />
     </svg>
   </div>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      @bob:example.com (@bob:example.com) shared this message since you were not in the room when it was sent.
+    </span>
+  </span>
 </div>
 `;
 
@@ -57,5 +66,14 @@ exports[`E2eMessageSharedIconView > renders the default shared-message icon 1`] 
       />
     </svg>
   </div>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Bob (@bob:example.com) shared this message since you were not in the room when it was sent.
+    </span>
+  </span>
 </div>
 `;
