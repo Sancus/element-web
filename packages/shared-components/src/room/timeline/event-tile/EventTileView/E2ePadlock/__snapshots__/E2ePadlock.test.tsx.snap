@@ -22,6 +22,15 @@ exports[`E2ePadlock > renders a 'DecryptionFailure' icon 1`] = `
       />
     </svg>
   </div>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Unable to decrypt message
+    </span>
+  </span>
 </div>
 `;
 
@@ -52,6 +61,15 @@ exports[`E2ePadlock > renders a 'Normal' icon 1`] = `
       />
     </svg>
   </div>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      The authenticity of this message could not be guaranteed
+    </span>
+  </span>
 </div>
 `;
 
@@ -77,5 +95,14 @@ exports[`E2ePadlock > renders a 'Warning' icon 1`] = `
       />
     </svg>
   </div>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      This message was sent unencrypted
+    </span>
+  </span>
 </div>
 `;

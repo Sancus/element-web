@@ -38,6 +38,15 @@ exports[`UploadButton > can open the menu and select an option 1`] = `
       </svg>
     </div>
   </button>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-2"
+    >
+      Attachment
+    </span>
+  </span>
 </div>
 `;
 
@@ -75,5 +84,14 @@ exports[`UploadButton > renders a default button 1`] = `
       </svg>
     </div>
   </button>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Attachment
+    </span>
+  </span>
 </div>
 `;

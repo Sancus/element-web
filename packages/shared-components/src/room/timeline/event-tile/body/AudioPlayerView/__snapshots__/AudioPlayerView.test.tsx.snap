@@ -39,6 +39,15 @@ exports[`AudioPlayerView > renders the audio player in default state 1`] = `
           </svg>
         </div>
       </button>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Play
+        </span>
+      </span>
       <div
         class="Flex-module_flex AudioPlayerView-module_mediaInfo"
         style="--mx-flex-display: flex; --mx-flex-direction: column; --mx-flex-align: start; --mx-flex-justify: start; --mx-flex-gap: 0; --mx-flex-wrap: nowrap;"
@@ -130,6 +139,15 @@ exports[`AudioPlayerView > renders the audio player in error state 1`] = `
           </svg>
         </div>
       </button>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Play
+        </span>
+      </span>
       <div
         class="Flex-module_flex AudioPlayerView-module_mediaInfo"
         style="--mx-flex-display: flex; --mx-flex-direction: column; --mx-flex-align: start; --mx-flex-justify: start; --mx-flex-gap: 0; --mx-flex-wrap: nowrap;"
@@ -226,6 +244,15 @@ exports[`AudioPlayerView > renders the audio player without media name 1`] = `
           </svg>
         </div>
       </button>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Play
+        </span>
+      </span>
       <div
         class="Flex-module_flex AudioPlayerView-module_mediaInfo"
         style="--mx-flex-display: flex; --mx-flex-direction: column; --mx-flex-align: start; --mx-flex-justify: start; --mx-flex-gap: 0; --mx-flex-wrap: nowrap;"
@@ -317,6 +344,15 @@ exports[`AudioPlayerView > renders the audio player without size 1`] = `
           </svg>
         </div>
       </button>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Play
+        </span>
+      </span>
       <div
         class="Flex-module_flex AudioPlayerView-module_mediaInfo"
         style="--mx-flex-display: flex; --mx-flex-direction: column; --mx-flex-align: start; --mx-flex-justify: start; --mx-flex-gap: 0; --mx-flex-wrap: nowrap;"
