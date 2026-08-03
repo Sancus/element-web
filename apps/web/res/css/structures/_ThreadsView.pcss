@@ -91,6 +91,38 @@
     font: var(--cpd-font-body-sm-regular);
 }
 
+/* Stays put at the top of the scroller so that the feed being out of date is visible from wherever
+   the user has read to, rather than only from the top. Left in the tree while empty so that its
+   status role is present for a screen reader to announce into. */
+.mx_ThreadsView_newActivity {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    /* Contributes nothing to the flex gap while there is nothing to say. */
+    margin-bottom: calc(-1 * var(--cpd-space-6x));
+
+    &:has(.mx_ThreadsView_newActivityButton) {
+        margin-bottom: 0;
+    }
+}
+
+.mx_ThreadsView_newActivityButton {
+    padding: var(--cpd-space-1x) var(--cpd-space-4x);
+    border-radius: var(--cpd-space-4x);
+    background: var(--cpd-color-bg-action-primary-rest);
+    color: var(--cpd-color-text-on-solid-primary);
+    font: var(--cpd-font-body-sm-medium);
+    /* Literal rather than a token: Compound exposes no shadow tokens, and this matches the
+       elevation other surfaces that float over content use. */
+    box-shadow: 0 4px 24px 0 rgb(27, 29, 34, 0.1);
+
+    &:hover {
+        background: var(--cpd-color-bg-action-primary-hovered);
+    }
+}
+
 .mx_ThreadsView_loadMore {
     align-self: center;
     padding: var(--cpd-space-2x) var(--cpd-space-4x);
