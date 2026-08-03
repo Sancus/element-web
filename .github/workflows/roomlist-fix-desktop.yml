@@ -240,6 +240,15 @@ jobs:
                   key: hak-seshat-v1-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/package.json', 'apps/desktop/.node-version', 'apps/desktop/hak/**', 'apps/desktop/scripts/hak/**', 'apps/desktop/dockerbuild/**') }}
                   path: apps/desktop/.hak
 
+            # hak finishes by running "pnpm link" on the module it built, which adds it to the
+            # workspace root and rewrites the lockfile. electron-builder then cannot map parts of
+            # the pnpm store back to packages, and drops them from the app with only a warning:
+            # v7 shipped that way and would not start. Reinstalling puts the tree back, and the
+            # link survives it because it is in the lockfile by now.
+            - name: Restore the dependency tree
+              working-directory: apps/desktop
+              run: pnpm install --frozen-lockfile --filter element-desktop
+
             - uses: actions/setup-python@v7
               if: runner.os == 'macOS'
               with:
@@ -264,9 +273,10 @@ jobs:
                   CSC_IDENTITY_AUTO_DISCOVERY: "false"
                   USE_HARD_LINKS: "false"
 
-            # Proves the native module actually shipped, rather than the app silently falling back
-            # to "no encrypted search" the way the earlier stubbed builds did.
-            - name: Verify matrix-seshat in packaged app
+            # Proves matrix-seshat actually shipped, rather than the app silently falling back to
+            # "no encrypted search" the way the earlier stubbed builds did, and that everything the
+            # main process imports is packaged with it. Both failures are invisible until launch.
+            - name: Verify the packaged app
               working-directory: apps/desktop
               shell: bash
               run: |
@@ -284,14 +294,7 @@ jobs:
                   test "${#asars[@]}" -gt 0 || { echo "packaged app.asar not found"; exit 1; }
                   test "${#native_modules[@]}" -gt 0 || { echo "packaged matrix-seshat native module not found"; exit 1; }
 
-                  node - "${asars[0]}" <<'NODE'
-                  const asar = require("@electron/asar");
-                  const entries = asar.listPackage(process.argv[2]);
-                  if (!entries.some((entry) => entry.replaceAll("\\", "/").endsWith("/node_modules/matrix-seshat/package.json"))) {
-                      throw new Error("matrix-seshat package metadata is absent from app.asar");
-                  }
-                  console.log("matrix-seshat package metadata verified in app.asar");
-                  NODE
+                  node ../../.github/scripts/verify-packaged-deps.mjs "${asars[0]}" matrix-seshat
 
                   printf 'matrix-seshat native module: %s\n' "${native_modules[0]}"
 

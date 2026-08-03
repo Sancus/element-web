@@ -141,10 +141,11 @@ on upstream signing infrastructure.
    the archive.
 3. The verified archive is passed to three parallel packaging jobs, each of which first
    compiles `matrix-seshat` through hak for its platform:
-   - Linux x64 on Ubuntu 22.04: `tar.gz` and `deb`
-   - macOS universal: `dmg` and `zip`
-   - Windows x64: portable `zip`
-4. Each job asserts the seshat module is inside the package it produced before uploading it.
+    - Linux x64 on Ubuntu 22.04: `tar.gz` and `deb`
+    - macOS universal: `dmg` and `zip`
+    - Windows x64: portable `zip`
+4. Each job restores the dependency tree, then asserts that the package it produced contains
+   seshat and everything else the main process imports (see below) before uploading it.
 5. On a tag, the release job gathers the five output artifacts and creates the GitHub Release.
 
 The workflow uses the desktop's pinned Node version (`24.18.0`) and pnpm's lockfile, and
@@ -172,6 +173,32 @@ The hak build is cached per platform (`apps/desktop/.hak`, keyed on the lockfile
 scripts) and saved before packaging, so a packaging failure does not force sqlcipher and
 seshat to be recompiled on the next attempt. GitHub does not share caches between sibling
 branches, so the first run on any new branch pays the full Rust compile again.
+
+### Why the tree is reinstalled after the native build
+
+hak finishes by running `pnpm link` on the module it built. That adds `matrix-seshat` to the
+**workspace root** `package.json`, rewrites `pnpm-lock.yaml`, and reformats
+`pnpm-workspace.yaml`. After it, electron-builder can no longer map parts of the pnpm store
+back to packages and quietly drops them, logging only:
+
+```
+• cannot find path for dependency  dependencies=["import-in-the-middle@3.3.2","@opentelemetry/api-logs@0.220.0","debug@4.4.3","ms@2.1.3"]
+```
+
+That is how `roomlist-fix-v7` shipped: Windows and macOS packages missing five transitive
+`@sentry/node-core` dependencies, dying at startup with `ERR_MODULE_NOT_FOUND` for
+`import-in-the-middle`. Linux escaped only because pnpm happened to reinstall the workspace
+before packaging there. The workflow now always reinstalls before packaging, and the link
+survives it because `pnpm link` put it in the lockfile.
+
+`.github/scripts/verify-packaged-deps.mjs` is the backstop: it walks the production
+dependency graph inside the packaged `app.asar` and fails the build on anything unresolvable,
+because electron-builder treats a missing package as a warning. Run it by hand against any
+downloaded build with:
+
+```sh
+cd apps/desktop && node ../../.github/scripts/verify-packaged-deps.mjs /path/to/app.asar matrix-seshat
+```
 
 ### Test a candidate
 
