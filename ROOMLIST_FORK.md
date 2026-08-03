@@ -178,8 +178,9 @@ branches, so the first run on any new branch pays the full Rust compile again.
 
 hak finishes by running `pnpm link` on the module it built. That adds `matrix-seshat` to the
 **workspace root** `package.json`, rewrites `pnpm-lock.yaml`, and reformats
-`pnpm-workspace.yaml`. After it, electron-builder can no longer map parts of the pnpm store
-back to packages and quietly drops them, logging only:
+`pnpm-workspace.yaml`. electron-builder decides what to package from that lockfile, and
+against the rewritten one it can no longer place some packages, so it quietly drops them and
+logs only:
 
 ```
 • cannot find path for dependency  dependencies=["import-in-the-middle@3.3.2","@opentelemetry/api-logs@0.220.0","debug@4.4.3","ms@2.1.3"]
@@ -187,9 +188,14 @@ back to packages and quietly drops them, logging only:
 
 That is how `roomlist-fix-v7` shipped: Windows and macOS packages missing five transitive
 `@sentry/node-core` dependencies, dying at startup with `ERR_MODULE_NOT_FOUND` for
-`import-in-the-middle`. Linux escaped only because pnpm happened to reinstall the workspace
-before packaging there. The workflow now always reinstalls before packaging, and the link
-survives it because `pnpm link` put it in the lockfile.
+`import-in-the-middle`. Linux escaped only because pnpm happened to reinstall the whole
+workspace before packaging there.
+
+The workflow now restores `package.json`, `pnpm-lock.yaml` and `pnpm-workspace.yaml` from the
+checkout and reinstalls, so packaging always runs against the committed lockfile. Reinstalling
+without restoring those files is not enough — that was tried, and the packages came out broken
+in exactly the same way. Dropping the link costs nothing: electron-builder takes the module
+from `.hak/hakModules`, and `tsc` uses the declaration in `apps/desktop/src/@types`.
 
 `.github/scripts/verify-packaged-deps.mjs` is the backstop: it walks the production
 dependency graph inside the packaged `app.asar` and fails the build on anything unresolvable,

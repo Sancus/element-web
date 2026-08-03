@@ -19,9 +19,17 @@ const asar = createRequire(path.join(process.cwd(), "index.js"))("@electron/asar
 
 // Manifests are read out of the archive directly. Extracting to disk would drag in the
 // asar.unpacked sidecar, and the native binaries in it are not what is being checked here.
-const entries = new Set(asar.listPackage(asarPath).map((entry) => entry.replaceAll("\\", "/").replace(/^\//, "")));
+//
+// An archive built on Windows lists its entries with backslashes and only answers to them, so
+// paths are compared in normalised form and looked up again in whichever form the archive uses.
+const entries = new Map(
+    asar
+        .listPackage(asarPath)
+        .map((entry) => entry.replace(/^[\\/]/, ""))
+        .map((entry) => [entry.replaceAll("\\", "/"), entry]),
+);
 const manifest = (dir) =>
-    JSON.parse(asar.extractFile(asarPath, dir ? `${dir}/package.json` : "package.json").toString("utf8"));
+    JSON.parse(asar.extractFile(asarPath, entries.get(dir ? `${dir}/package.json` : "package.json")).toString("utf8"));
 
 // Node's own lookup: walk up through node_modules directories. Deliberately not
 // require.resolve, whose "exports" handling hides package.json files that are really there.
