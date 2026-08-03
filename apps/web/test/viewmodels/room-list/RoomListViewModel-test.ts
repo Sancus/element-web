@@ -32,6 +32,7 @@ import { getSectionTagForRoom } from "../../../src/utils/room/getSectionTagForRo
 import {
     CHATS_TAG,
     CUSTOM_SECTION_TAG_PREFIX,
+    PEOPLE_TAG,
     type SectionExpansionState,
 } from "../../../src/stores/room-list-v3/section";
 import { MetaSpace } from "../../../src/stores/spaces";
@@ -1131,6 +1132,19 @@ describe("RoomListViewModel", () => {
                 const headerVM1 = viewModel.getSectionHeaderViewModel(DefaultTagID.Favourite);
                 const headerVM2 = viewModel.getSectionHeaderViewModel(DefaultTagID.Favourite);
                 expect(headerVM1).toBe(headerVM2);
+            });
+
+            it("should give the People section a translated title", () => {
+                viewModel = new RoomListViewModel({
+                    client: matrixClient,
+                    spaceStore: SDKContextClass.instance.spaceStore,
+                    roomViewStore: SDKContextClass.instance.roomViewStore,
+                });
+
+                // The i18n module is mocked here, so we can only check that the title doesn't fall
+                // back to the synthetic tag as it would for a section without a translation.
+                const { title } = viewModel.getSectionHeaderViewModel(PEOPLE_TAG).getSnapshot();
+                expect(title).not.toBe(PEOPLE_TAG);
             });
 
             it("should hide room IDs when a section is collapsed", () => {

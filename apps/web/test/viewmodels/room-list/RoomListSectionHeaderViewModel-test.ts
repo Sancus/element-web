@@ -21,6 +21,7 @@ import RoomListStoreV3 from "../../../src/stores/room-list-v3/RoomListStoreV3";
 import { DefaultTagID } from "../../../src/stores/room-list-v3/skip-list/tag";
 import {
     CHATS_TAG,
+    PEOPLE_TAG,
     type SectionExpansionState,
     type SectionSortingState,
 } from "../../../src/stores/room-list-v3/section";
@@ -185,6 +186,7 @@ describe("RoomListSectionHeaderViewModel", () => {
             [DefaultTagID.Favourite, false],
             [DefaultTagID.LowPriority, false],
             [CHATS_TAG, false],
+            [PEOPLE_TAG, false],
             ["element.io.section.custom", true],
         ])("should be %s for tag %s", (tag, expected) => {
             const vm = new RoomListSectionHeaderViewModel({
@@ -202,6 +204,7 @@ describe("RoomListSectionHeaderViewModel", () => {
             [DefaultTagID.Favourite, false],
             [DefaultTagID.LowPriority, false],
             [CHATS_TAG, true],
+            [PEOPLE_TAG, false],
             ["element.io.section.custom", true],
         ])("should be %s for tag %s", (tag, expected) => {
             const vm = new RoomListSectionHeaderViewModel({

@@ -38,7 +38,7 @@ import { hasCreateRoomRights } from "./utils";
 import { keepIfSame } from "../../utils/keepIfSame";
 import { DefaultTagID } from "../../stores/room-list-v3/skip-list/tag";
 import { RoomListSectionHeaderViewModel } from "./RoomListSectionHeaderViewModel";
-import { getCustomSectionData, isCustomSectionTag, CHATS_TAG } from "../../stores/room-list-v3/section";
+import { getCustomSectionData, isCustomSectionTag, CHATS_TAG, PEOPLE_TAG } from "../../stores/room-list-v3/section";
 import { tagRoom } from "../../utils/room/tagRoom";
 import { getSectionTagForRoom } from "../../utils/room/getSectionTagForRoom";
 import SettingsStore from "../../settings/SettingsStore";
@@ -92,6 +92,7 @@ function getVisibleFilterIds(): FilterId[] {
 
 const TAG_TO_TITLE_MAP: Record<string, string> = {
     [DefaultTagID.Favourite]: _t("room_list|section|favourites"),
+    [PEOPLE_TAG]: _t("room_list|section|people"),
     [CHATS_TAG]: _t("room_list|section|chats"),
     [DefaultTagID.LowPriority]: _t("room_list|section|low_priority"),
 };

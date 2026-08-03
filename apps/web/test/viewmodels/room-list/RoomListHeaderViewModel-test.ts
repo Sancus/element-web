@@ -455,6 +455,19 @@ describe("RoomListHeaderViewModel", () => {
             expect(vm.getSnapshot().isCompactLayoutEnabled).toBe(true);
         });
 
+        it("should toggle the People section from enabled to disabled", () => {
+            jest.spyOn(SettingsStore, "getValue").mockImplementation(() => true);
+            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockImplementation(jest.fn());
+
+            vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: sdkContext.spaceStore });
+            expect(vm.getSnapshot().isPeopleSectionEnabled).toBe(true);
+
+            vm.togglePeopleSection();
+
+            expect(setValueSpy).toHaveBeenCalledWith("RoomList.showDmSection", null, expect.anything(), false);
+            expect(vm.getSnapshot().isPeopleSectionEnabled).toBe(false);
+        });
+
         it("should call nextReleaseAnnouncement and set displaySectionReleaseAnnouncement to false when closeSectionReleaseAnnouncement is called", () => {
             vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: sdkContext.spaceStore });
 

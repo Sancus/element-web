@@ -24,6 +24,16 @@ import { SortingAlgorithm } from "./skip-list/sorters";
 export const CHATS_TAG = "chats";
 
 /**
+ * The tag of the "People" section, which collects the direct messages that no other section
+ * claims, plus any room the user has moved into it by hand.
+ *
+ * Unlike the other section tags it has two sources of membership, so a room carries it only when
+ * it was moved in deliberately. This one reaches the server as an `m.tag`, hence the namespace —
+ * kept out of {@link CUSTOM_SECTION_TAG_PREFIX} so it isn't mistaken for a user-created section.
+ */
+export const PEOPLE_TAG = "element.io.people_section";
+
+/**
  * Prefix for custom section tags.
  */
 export const CUSTOM_SECTION_TAG_PREFIX = "element.io.section.";
@@ -45,7 +55,12 @@ export function isCustomSectionTag(tag: string): tag is CustomTag {
  * @returns True if the tag is a default section tag, false otherwise.
  */
 export function isDefaultSectionTag(tagId: TagID): boolean {
-    return tagId === DefaultTagID.Favourite || tagId === DefaultTagID.LowPriority || tagId === CHATS_TAG;
+    return (
+        tagId === DefaultTagID.Favourite ||
+        tagId === DefaultTagID.LowPriority ||
+        tagId === CHATS_TAG ||
+        tagId === PEOPLE_TAG
+    );
 }
 
 /**

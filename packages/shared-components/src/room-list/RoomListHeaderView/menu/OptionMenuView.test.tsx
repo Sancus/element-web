@@ -135,6 +135,19 @@ describe("<OptionMenuView />", () => {
         expect(vm.toggleCompactLayout).toHaveBeenCalled();
     });
 
+    it("should toggle the People section", async () => {
+        const user = userEvent.setup();
+
+        const vm = new MockedViewModel({ ...defaultSnapshot, isPeopleSectionEnabled: true });
+        render(<OptionMenuView vm={vm} />);
+
+        await user.click(screen.getByRole("button", { name: "Room Options" }));
+        expect(screen.getByRole("menuitemcheckbox", { name: "Show People section" })).toBeChecked();
+
+        await user.click(screen.getByRole("menuitemcheckbox", { name: "Show People section" }));
+        expect(vm.togglePeopleSection).toHaveBeenCalled();
+    });
+
     it("should disable and uncheck message previews in the compact layout", async () => {
         const user = userEvent.setup();
 

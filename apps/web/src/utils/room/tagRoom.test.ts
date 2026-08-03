@@ -15,7 +15,7 @@ import { getMockClientWithEventEmitter } from "test-utils";
 import RoomListActions from "../../actions/RoomListActions";
 import defaultDispatcher from "../../dispatcher/dispatcher";
 import { DefaultTagID, type TagID } from "../../stores/room-list-v3/skip-list/tag";
-import { CHATS_TAG, CUSTOM_SECTION_TAG_PREFIX } from "../../stores/room-list-v3/section";
+import { CHATS_TAG, CUSTOM_SECTION_TAG_PREFIX, PEOPLE_TAG } from "../../stores/room-list-v3/section";
 import { tagRoom } from "./tagRoom";
 import * as getSectionTagForRoomUtils from "./getSectionTagForRoom";
 
@@ -52,6 +52,33 @@ describe("tagRoom()", () => {
 
         expect(defaultDispatcher.dispatch).not.toHaveBeenCalled();
         expect(RoomListActions.tagRoom).not.toHaveBeenCalled();
+    });
+
+    it("should tag a room into the People section", () => {
+        const room = makeRoom();
+
+        tagRoom(room, PEOPLE_TAG);
+
+        expect(defaultDispatcher.dispatch).toHaveBeenCalled();
+        expect(RoomListActions.tagRoom).toHaveBeenCalledWith(
+            room.client,
+            room,
+            null, // remove
+            PEOPLE_TAG, // add
+        );
+    });
+
+    it("should untag a room already in the People section", () => {
+        const room = makeRoom(PEOPLE_TAG);
+
+        tagRoom(room, PEOPLE_TAG);
+
+        expect(RoomListActions.tagRoom).toHaveBeenCalledWith(
+            room.client,
+            room,
+            PEOPLE_TAG, // remove
+            null, // add
+        );
     });
 
     describe("when a room has no section tag", () => {

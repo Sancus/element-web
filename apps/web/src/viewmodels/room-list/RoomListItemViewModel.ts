@@ -41,7 +41,7 @@ import type { ViewRoomPayload } from "../../dispatcher/payloads/ViewRoomPayload"
 import PosthogTrackers from "../../PosthogTrackers";
 import { type Call, CallEvent } from "../../models/Call";
 import RoomListStoreV3 from "../../stores/room-list-v3/RoomListStoreV3";
-import { getCustomSectionData, isDefaultSectionTag } from "../../stores/room-list-v3/section";
+import { CHATS_TAG, getCustomSectionData, PEOPLE_TAG } from "../../stores/room-list-v3/section";
 import { _t } from "../../languageHandler";
 import { fetchUserStatus, userStatusFromProfile } from "../../utils/userStatus";
 
@@ -152,9 +152,13 @@ export class RoomListItemViewModel
         const sectionDataRef = SettingsStore.watchSetting("RoomList.CustomSectionData", null, () =>
             this.onCustomSectionsChange(),
         );
+        const dmSectionRef = SettingsStore.watchSetting("RoomList.showDmSection", null, () =>
+            this.onCustomSectionsChange(),
+        );
         this.disposables.track(() => {
             SettingsStore.unwatchSetting(orderSectionsRef);
             SettingsStore.unwatchSetting(sectionDataRef);
+            SettingsStore.unwatchSetting(dmSectionRef);
         });
 
         // Load message preview asynchronously (sync data is already complete)
@@ -545,8 +549,11 @@ export class RoomListItemViewModel
         return (
             RoomListStoreV3.instance.orderedSectionTags
                 // Exclude the Chats because the user toggle the other sections to move rooms in and out of the Chats section.
-                // Also exclude the default sections because they are available as toggles in the main context menu, and we don't want them to be duplicated in the "Move to section" submenu.
-                .filter((tag) => !isDefaultSectionTag(tag))
+                // Favourites and Low Priority are excluded as well: they are toggles in the main
+                // context menu already, and we don't want them duplicated in the "Move to section" submenu.
+                .filter(
+                    (tag) => tag !== CHATS_TAG && tag !== DefaultTagID.Favourite && tag !== DefaultTagID.LowPriority,
+                )
                 .map((tag) => ({
                     tag,
                     name: RoomListItemViewModel.getSectionName(tag, customSectionData),
@@ -572,6 +579,7 @@ export class RoomListItemViewModel
     private static getSectionName(tag: string, customSectionData: Record<string, { name: string }>): string {
         if (tag === DefaultTagID.Favourite) return _t("room_list|section|favourites");
         if (tag === DefaultTagID.LowPriority) return _t("room_list|section|low_priority");
+        if (tag === PEOPLE_TAG) return _t("room_list|section|people");
         return customSectionData[tag]?.name || tag;
     }
 }
