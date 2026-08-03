@@ -10,7 +10,7 @@ import { ChevronDownIcon, CheckIcon } from "@vector-im/compound-design-tokens/as
 
 import { _t } from "../../../languageHandler";
 import { ContextMenuButton } from "../../../accessibility/context_menu/ContextMenuButton";
-import ContextMenu, { aboveLeftOf, ChevronFace, MenuItemRadio, useContextMenu } from "../../structures/ContextMenu";
+import ContextMenu, { aboveLeftOf, MenuItemRadio, useContextMenu } from "../../structures/ContextMenu";
 import { ThreadsFeedFilter } from "../../../viewmodels/threads/threadsFeed";
 
 interface ThreadsViewFilterMenuProps {
@@ -65,7 +65,14 @@ export function ThreadsViewFilterMenu({ filter, onChange }: ThreadsViewFilterMen
                     // Spreading the DOMRect does not supply them: its properties are accessors on
                     // the prototype, so the spread yields an empty object and the menu renders
                     // unpositioned in the portal at the end of the document.
-                    {...aboveLeftOf(button.current.getBoundingClientRect(), ChevronFace.Top)}
+                    //
+                    // Asking for a chevron would break this menu specifically. The props place a
+                    // zero-width wrapper at the button's right-hand edge, and it is the chevron-less
+                    // `mx_ContextualMenu_right` class that then holds the menu's own right edge to
+                    // it. A chevron suppresses that class in favour of one that only offsets the
+                    // menu vertically, leaving it to flow rightwards out of the window from a button
+                    // this close to its right edge.
+                    {...aboveLeftOf(button.current.getBoundingClientRect())}
                     onFinished={closeMenu}
                     wrapperClassName="mx_ThreadsView_filterMenu"
                 >
