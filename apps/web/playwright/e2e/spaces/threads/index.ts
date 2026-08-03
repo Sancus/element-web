@@ -236,96 +236,96 @@ export class Helpers {
     }
 
     /**
-     * Get the threads activity centre button
-     * @private
+     * Get the space panel button that opens the threads page
      */
-    private getTacButton(): Locator {
+    getThreadsNavButton(): Locator {
         return this.page.getByRole("navigation", { name: "Spaces" }).getByLabel("Threads");
     }
 
     /**
-     * Return the threads activity centre panel
+     * Open the threads page
      */
-    getTacPanel() {
-        return this.page.getByRole("menu", { name: "Threads" });
+    async openThreadsPage() {
+        await this.getThreadsNavButton().click();
+        await expect(this.getThreadsPage()).toBeVisible();
     }
 
     /**
-     * Open the Threads Activity Centre
+     * The threads page itself
      */
-    openTac() {
-        return this.getTacButton().click();
+    getThreadsPage(): Locator {
+        return this.page.getByRole("main", { name: "Threads" });
     }
 
     /**
-     * Hover over the Threads Activity Centre button
+     * Every thread card currently rendered in the feed, in feed order
      */
-    hoverTacButton() {
-        return this.getTacButton().hover();
+    getThreadCards(): Locator {
+        return this.getThreadsPage().locator(".mx_ThreadCard");
     }
 
     /**
-     * Click on a room in the Threads Activity Centre
-     * @param name - room name
+     * The card for the thread rooted at the message with the given body
      */
-    clickRoomInTac(name: string) {
-        return this.getTacPanel().getByRole("menuitem", { name }).click();
+    getThreadCard(rootMessage: string): Locator {
+        return this.getThreadCards().filter({ hasText: rootMessage });
     }
 
     /**
-     * Assert that the threads activity centre button has no indicator
+     * Assert that the threads nav button has no indicator
      */
-    async assertNoTacIndicator() {
+    async assertNoThreadsIndicator() {
         // Assert by checking neither of the known indicators are visible first. This will wait
         // if it takes a little time to disappear, but the screenshot comparison won't.
-        await expect(this.getTacButton().locator("[data-indicator='success']")).not.toBeVisible();
-        await expect(this.getTacButton().locator("[data-indicator='critical']")).not.toBeVisible();
-        await expect(this.getTacButton()).toMatchScreenshot("tac-no-indicator.png");
+        await expect(this.getThreadsNavButton().locator("[data-indicator='success']")).not.toBeVisible();
+        await expect(this.getThreadsNavButton().locator("[data-indicator='critical']")).not.toBeVisible();
+        await expect(this.getThreadsNavButton()).toMatchScreenshot("threads-nav-no-indicator.png");
     }
 
     /**
-     * Assert that the threads activity centre button has a notification indicator
+     * Assert that the threads nav button has a notification indicator
      */
-    assertNotificationTac() {
-        return expect(this.getTacButton().locator("[data-indicator='success']")).toBeVisible();
+    assertNotificationIndicator() {
+        return expect(this.getThreadsNavButton().locator("[data-indicator='success']")).toBeVisible();
     }
 
     /**
-     * Assert that the threads activity centre button has a highlight indicator
+     * Assert that the threads nav button has a highlight indicator
      */
     assertHighlightIndicator() {
-        return expect(this.getTacButton().locator("[data-indicator='critical']")).toBeVisible();
+        return expect(this.getThreadsNavButton().locator("[data-indicator='critical']")).toBeVisible();
     }
 
     /**
-     * Assert that the threads activity centre panel has the expected rooms
-     * @param content - the expected rooms and their notification levels
+     * Assert that the feed contains exactly these threads, identified by their root message,
+     * in this order.
      */
-    async assertRoomsInTac(content: Array<{ room: string; notificationLevel: "highlight" | "notification" }>) {
-        const getBadgeClass = (notificationLevel: "highlight" | "notification") =>
-            notificationLevel === "highlight"
-                ? "mx_NotificationBadge_level_highlight"
-                : "mx_NotificationBadge_level_notification";
+    async assertThreadsInFeed(rootMessages: string[]) {
+        await expect(this.getThreadCards()).toHaveCount(rootMessages.length);
 
-        // Ensure that we have the right number of rooms
-        await expect(this.getTacPanel().getByRole("menuitem")).toHaveCount(content.length);
-
-        // Ensure that each room is present in the correct order and has the correct notification level
-        const roomsLocator = this.getTacPanel().getByRole("menuitem");
-        for (const [index, { room, notificationLevel }] of content.entries()) {
-            const roomLocator = roomsLocator.nth(index);
-            // Ensure that the room name are correct
-            await expect(roomLocator).toHaveText(new RegExp(room));
-            // There is no accessibility marker for the StatelessNotificationBadge
-            await expect(roomLocator.locator(`.${getBadgeClass(notificationLevel)}`)).toBeVisible();
+        for (const [index, rootMessage] of rootMessages.entries()) {
+            await expect(this.getThreadCards().nth(index)).toContainText(rootMessage);
         }
     }
 
     /**
-     * Assert that the thread panel is opened
+     * Expand the card for the thread rooted at the given message
      */
-    assertThreadPanelIsOpened() {
-        return expect(this.page.locator(".mx_ThreadPanel")).toBeVisible();
+    async expandThreadCard(rootMessage: string) {
+        const card = this.getThreadCard(rootMessage);
+        await card
+            .getByRole("button", { name: /Show \d+ more repl|Reply/ })
+            .first()
+            .click();
+        await expect(card.getByRole("button", { name: "Collapse thread" })).toBeVisible();
+    }
+
+    /**
+     * Choose an option from the feed's filter dropdown
+     */
+    async setFilter(name: "All threads" | "Unread" | "Mentions") {
+        await this.getThreadsPage().getByRole("button", { name: "Show:" }).click();
+        await this.page.getByRole("menuitemradio", { name }).click();
     }
 
     /**

@@ -1,0 +1,144 @@
+/*
+Copyright 2026 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE files in the repository root for full details.
+*/
+
+import { test, expect } from ".";
+
+test.describe("Threads view", { tag: "@no-firefox" }, () => {
+    test.use({
+        displayName: "Alice",
+        botCreateOpts: { displayName: "Other User" },
+    });
+
+    test("should not show an indicator when there are no threads", async ({ room1, util }) => {
+        await util.goTo(room1);
+        await util.assertNoThreadsIndicator();
+    });
+
+    test("should show a notification indicator when there is a message in a thread", async ({
+        room1,
+        util,
+        msg,
+        page,
+    }) => {
+        await util.goTo(room1);
+        await util.receiveMessages(room1, ["Msg1", msg.threadedOff("Msg1", "Resp1")]);
+        // Reading the room does not read its threads.
+        await page.reload();
+
+        await util.assertNotificationIndicator();
+    });
+
+    test("should show a highlight indicator when there is a mention in a thread", async ({
+        room1,
+        util,
+        msg,
+        user,
+    }) => {
+        await util.goTo(room1);
+        await util.receiveMessages(room1, [
+            "Msg1",
+            msg.threadedOff("Msg1", {
+                "body": "Alice",
+                "format": "org.matrix.custom.html",
+                "formatted_body": `<a href="https://matrix.to/#/${user.userId}">Alice</a>`,
+                "m.mentions": { user_ids: [user.userId] },
+            }),
+        ]);
+
+        await util.assertHighlightIndicator();
+    });
+
+    test("should open a page listing threads from every room", async ({ room1, room2, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.populateThreads(room1, room2, msg, user);
+
+        await util.openThreadsPage();
+
+        // Msg3 in room1 is the most recent, then Msg2 and Msg1 in room2.
+        await util.assertThreadsInFeed(["Msg3", "Msg2", "Msg1"]);
+    });
+
+    test("should name the room each thread belongs to", async ({ room1, room2, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.populateThreads(room1, room2, msg, user);
+
+        await util.openThreadsPage();
+
+        await expect(util.getThreadCard("Msg3")).toContainText(room1.name);
+        await expect(util.getThreadCard("Msg2")).toContainText(room2.name);
+    });
+
+    test("should show only mentions when filtered to mentions", async ({ room1, room2, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.populateThreads(room1, room2, msg, user);
+
+        await util.openThreadsPage();
+        await util.setFilter("Mentions");
+
+        // Only the thread off Msg1 mentions the user.
+        await util.assertThreadsInFeed(["Msg1"]);
+    });
+
+    test("should reply to a thread from the feed", async ({ room1, util, msg, page }) => {
+        await util.goTo(room1);
+        await util.receiveMessages(room1, ["Msg1", msg.threadedOff("Msg1", "Resp1")]);
+
+        await util.openThreadsPage();
+        await util.expandThreadCard("Msg1");
+
+        const card = util.getThreadCard("Msg1");
+        await card.getByRole("textbox", { name: "Send a message…" }).fill("My reply");
+        await card.getByRole("textbox", { name: "Send a message…" }).press("Enter");
+
+        await expect(card).toContainText("My reply");
+
+        // The reply landed in the thread rather than the main timeline.
+        await util.goTo(room1);
+        await expect(page.locator(".mx_RoomView_MessageList")).not.toContainText("My reply");
+    });
+
+    test("should expand only one thread at a time", async ({ room1, room2, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.populateThreads(room1, room2, msg, user);
+
+        await util.openThreadsPage();
+        await util.expandThreadCard("Msg3");
+        await util.expandThreadCard("Msg2");
+
+        await expect(util.getThreadCard("Msg2").getByRole("button", { name: "Collapse thread" })).toBeVisible();
+        await expect(util.getThreadCard("Msg3").getByRole("button", { name: "Collapse thread" })).not.toBeVisible();
+    });
+
+    test("should clear the thread's unread state once read", async ({ room1, util, msg, page }) => {
+        await util.goTo(room1);
+        await util.receiveMessages(room1, ["Msg1", msg.threadedOff("Msg1", "Resp1")]);
+        await page.reload();
+        await util.assertNotificationIndicator();
+
+        await util.openThreadsPage();
+        await util.expandThreadCard("Msg1");
+
+        await util.assertNoThreadsIndicator();
+    });
+
+    test("should show an empty state when there are no threads", async ({ room1, util }) => {
+        await util.goTo(room1);
+
+        await util.openThreadsPage();
+
+        await expect(util.getThreadsPage()).toContainText("No threads yet");
+    });
+
+    test("should mark the nav button as the current page", async ({ room1, util }) => {
+        await util.goTo(room1);
+        await expect(util.getThreadsNavButton()).not.toHaveAttribute("aria-current", "page");
+
+        await util.openThreadsPage();
+
+        await expect(util.getThreadsNavButton()).toHaveAttribute("aria-current", "page");
+    });
+});
