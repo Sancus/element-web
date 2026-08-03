@@ -3291,6 +3291,7 @@
         "filter_mentions": "Mentions",
         "filter_unread": "Unread",
         "load_earlier": "Load earlier replies",
+        "load_more": "Look for older threads",
         "loading": "Loading…",
         "reply_prompt": "Reply…",
         "show_more_replies": {

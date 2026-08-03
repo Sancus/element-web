@@ -39,7 +39,7 @@ export function ThreadsView(): JSX.Element {
     const [renderCount, setRenderCount] = useState(RENDER_BATCH);
     const [expandedThreadId, setExpandedThreadId] = useState<string | null>(null);
 
-    const { entries, loading, hasMore, loadMore } = useThreadsFeed(filter);
+    const { entries, backfilling, hasMore, loadMore } = useThreadsFeed(filter);
 
     // Changing filter re-windows the feed from the top.
     useEffect(() => {
@@ -121,7 +121,7 @@ export function ThreadsView(): JSX.Element {
                 }}
                 tabIndex={0}
             >
-                {visible.length === 0 && !loading && emptyState}
+                {visible.length === 0 && !backfilling && emptyState}
 
                 {visible.map((entry) => (
                     <ThreadCard
@@ -133,10 +133,18 @@ export function ThreadsView(): JSX.Element {
                     />
                 ))}
 
-                {(loading || (visible.length > 0 && (canRenderMore || hasMore))) && (
+                {backfilling && (
                     <div className="mx_ThreadsView_spinner">
                         <Spinner />
                     </div>
+                )}
+
+                {/* Scrolling drives backfill, but a feed too short to scroll would otherwise
+                    never ask for more, so offer it explicitly too. */}
+                {!backfilling && !canRenderMore && hasMore && (
+                    <button type="button" className="mx_ThreadsView_loadMore" onClick={loadMore}>
+                        {_t("threads_view|load_more")}
+                    </button>
                 )}
             </AutoHideScrollbar>
         </main>

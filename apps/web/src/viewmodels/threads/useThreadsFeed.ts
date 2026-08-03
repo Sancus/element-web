@@ -34,8 +34,8 @@ const BACKFILL_CONCURRENCY = 3;
 export interface ThreadsFeedState {
     /** Filtered, most-recent-first list of threads. */
     entries: ThreadFeedEntry[];
-    /** True while a backfill pass is running and there is nothing to show yet. */
-    loading: boolean;
+    /** True only while a backfill pass is actually in flight. */
+    backfilling: boolean;
     /** Whether more rooms remain to be searched for threads. */
     hasMore: boolean;
     /** Fetch the next batch of rooms. Safe to call repeatedly. */
@@ -158,7 +158,7 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
 
     return {
         entries,
-        loading: backfilling && allEntries.length === 0,
+        backfilling,
         hasMore,
         loadMore,
     };
