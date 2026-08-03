@@ -207,7 +207,15 @@ export const ThreadCard = memo(function ThreadCard({
     useDispatcher(defaultDispatcher, (payload: ActionPayload) => {
         switch (payload.action) {
             case "reply_to_event":
-                if (payload.context !== TimelineRenderingType.Thread || !ownsEvent(payload.event)) return;
+                if (payload.context !== TimelineRenderingType.Thread) return;
+                // A null event cancels the reply, which is how the composer clears a quote on
+                // Escape. It names no event to match against, so every card drops its reply; only
+                // the one with an open composer has one.
+                if (!payload.event) {
+                    setReplyToEvent(undefined);
+                    return;
+                }
+                if (!ownsEvent(payload.event)) return;
                 setReplyToEvent(payload.event);
                 // The composer only exists once a card is expanded, so replying has to open it.
                 if (!expanded) onToggleExpanded(thread.id);
