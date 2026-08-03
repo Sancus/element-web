@@ -98,13 +98,18 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
 
         await expect(card).toContainText("My reply");
 
-        // The reply belongs to the thread, not the room's main timeline. Asserting that the
-        // timeline simply does not mention it would be unfalsifiable: the thread summary hanging
-        // off the root previews the newest reply, and it sits inside the message list. So check
-        // both halves — the summary previews it, and no message in the timeline itself renders it.
+        // The reply belongs to the thread, not the room's main timeline. Asserting only that the
+        // timeline does not mention it would be unfalsifiable: the thread summary hanging off the
+        // root previews the newest reply, and the summary sits inside the message list.
         await util.goTo(room1);
+        const timelineMessages = page.locator(".mx_RoomView_MessageList .mx_MTextBody");
+        // The reply reached the thread.
         await expect(page.locator(".mx_ThreadSummary")).toContainText("My reply");
-        await expect(page.locator(".mx_RoomView_MessageList .mx_MTextBody", { hasText: "My reply" })).toHaveCount(0);
+        // The root is still the timeline's only message. Asserted positively as well as
+        // negatively, so that the count below is known to be counting something: on a timeline
+        // that failed to render, "no message contains the reply" would hold trivially.
+        await expect(timelineMessages.filter({ hasText: "Msg1" })).toHaveCount(1);
+        await expect(timelineMessages.filter({ hasText: "My reply" })).toHaveCount(0);
     });
 
     test("should expand only one thread at a time", async ({ room1, room2, util, msg, user }) => {
