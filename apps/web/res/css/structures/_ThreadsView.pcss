@@ -79,8 +79,16 @@
 
 .mx_ThreadsView_spinner {
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--cpd-space-3x);
     justify-content: center;
     padding: var(--cpd-space-6x) 0;
+}
+
+.mx_ThreadsView_searching {
+    color: $secondary-content;
+    font: var(--cpd-font-body-sm-regular);
 }
 
 .mx_ThreadsView_loadMore {
@@ -110,6 +118,7 @@
 
 .mx_ThreadCard_roomHeader {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--cpd-space-2x);
     min-width: 0;
@@ -137,12 +146,23 @@
     white-space: nowrap;
 }
 
+/* Its own line under the room name, as in Slack. Sharing the row squeezes it out of existence
+   as soon as the room name is long enough to need ellipsizing. */
 .mx_ThreadCard_participants {
+    flex-basis: 100%;
     color: $secondary-content;
     font: var(--cpd-font-body-sm-regular);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Pushed to the trailing edge, taking the collapse control after it. */
+.mx_ThreadCard_lastActivity {
+    margin-inline-start: auto;
+    flex-shrink: 0;
+    color: $secondary-content;
+    font: var(--cpd-font-body-sm-regular);
 }
 
 .mx_ThreadCard_body {
@@ -173,10 +193,17 @@
 }
 
 .mx_ThreadCard_showMore,
-.mx_ThreadCard_collapse,
 .mx_ThreadCard_loadEarlier {
     align-self: flex-start;
     margin: var(--cpd-space-1x) var(--cpd-space-4x);
+}
+
+.mx_ThreadCard_collapse {
+    flex-shrink: 0;
+}
+
+.mx_ThreadCard_collapse,
+.mx_ThreadCard_loadEarlier {
     color: $accent;
     font: var(--cpd-font-body-sm-medium);
 

@@ -54,6 +54,11 @@ export interface ThreadsFeedState {
     hasMore: boolean;
     /** Fetch the next batch of rooms. Safe to call repeatedly. */
     loadMore: () => void;
+    /**
+     * Whether the first scan has run. Distinguishes "nothing found" from "nothing looked at yet",
+     * which would otherwise flash an empty state on first paint.
+     */
+    initialised: boolean;
 }
 
 /**
@@ -76,6 +81,8 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
     const [backfilledCount, setBackfilledCount] = useState(0);
     const [backfilling, setBackfilling] = useState(false);
     const [pendingRetries, setPendingRetries] = useState(0);
+    /** False until the first scan of in-memory threads has run, so the page can hold its empty state. */
+    const [initialised, setInitialised] = useState(false);
 
     // Rooms are ordered once per room list so that backfill progress stays stable while the
     // user scrolls, rather than being reshuffled by incoming activity.
@@ -111,6 +118,7 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
         dirtyRooms.current.clear();
         scanRooms(getFeedRooms(client, msc3946ProcessDynamicPredecessor));
         publish();
+        setInitialised(true);
     }, [client, msc3946ProcessDynamicPredecessor, scanRooms, publish]);
 
     const rescanDirty = useCallback(() => {
@@ -259,9 +267,14 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
 
     useEffect(() => {
         if (started.current) return;
+        // `Thread.hasServerSideListSupport` is set from server capabilities fetched asynchronously
+        // at startup, so a page mounted from a deep link can render before it is known. Claiming
+        // the one-shot start while it is still false would leave the first pass never run; leaving
+        // it unclaimed means the next sync-driven render picks it up once support is known.
+        if (!canBackfill) return;
         started.current = true;
         void runBackfill(INITIAL_BACKFILL_ROOMS);
-    }, [runBackfill]);
+    }, [canBackfill, runBackfill]);
 
     const loadMore = useCallback(() => {
         void runBackfill(BACKFILL_BATCH_ROOMS);
@@ -275,6 +288,7 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
         backfilling,
         hasMore,
         loadMore,
+        initialised,
     };
 }
 

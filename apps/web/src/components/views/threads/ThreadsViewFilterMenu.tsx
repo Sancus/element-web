@@ -10,7 +10,7 @@ import { ChevronDownIcon, CheckIcon } from "@vector-im/compound-design-tokens/as
 
 import { _t } from "../../../languageHandler";
 import { ContextMenuButton } from "../../../accessibility/context_menu/ContextMenuButton";
-import ContextMenu, { ChevronFace, MenuItemRadio, useContextMenu } from "../../structures/ContextMenu";
+import ContextMenu, { aboveLeftOf, ChevronFace, MenuItemRadio, useContextMenu } from "../../structures/ContextMenu";
 import { ThreadsFeedFilter } from "../../../viewmodels/threads/threadsFeed";
 
 interface ThreadsViewFilterMenuProps {
@@ -59,11 +59,14 @@ export function ThreadsViewFilterMenu({ filter, onChange }: ThreadsViewFilterMen
                 {labelFor(filter)}
                 <ChevronDownIcon />
             </ContextMenuButton>
-            {menuDisplayed && (
+            {menuDisplayed && button.current && (
                 <ContextMenu
-                    {...button.current!.getBoundingClientRect()}
+                    // `ContextMenu` positions itself from explicit top/left/right/bottom props.
+                    // Spreading the DOMRect does not supply them: its properties are accessors on
+                    // the prototype, so the spread yields an empty object and the menu renders
+                    // unpositioned in the portal at the end of the document.
+                    {...aboveLeftOf(button.current.getBoundingClientRect(), ChevronFace.Top)}
                     onFinished={closeMenu}
-                    chevronFace={ChevronFace.Top}
                     wrapperClassName="mx_ThreadsView_filterMenu"
                 >
                     {OPTIONS.map((option) => (

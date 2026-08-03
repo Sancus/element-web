@@ -5,10 +5,11 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import React, { type JSX, useCallback, useEffect, useId, useRef, useState } from "react";
+import React, { type JSX, memo, useCallback, useEffect, useId, useRef, useState } from "react";
 import {
     Direction,
     type IEventRelation,
+    type MatrixClient,
     type MatrixEvent,
     ReceiptType,
     type Relations,
@@ -19,18 +20,22 @@ import { logger } from "matrix-js-sdk/src/logger";
 import classNames from "classnames";
 
 import { _t } from "../../../languageHandler";
+import { haveRendererForEvent } from "../../../events/EventTileFactory";
+import shouldHideEvent from "../../../shouldHideEvent";
 import SettingsStore from "../../../settings/SettingsStore";
 import { Action } from "../../../dispatcher/actions";
 import defaultDispatcher from "../../../dispatcher/dispatcher";
 import { type ActionPayload } from "../../../dispatcher/payloads";
+import { type FocusComposerPayload } from "../../../dispatcher/payloads/FocusComposerPayload";
 import { type ViewRoomPayload } from "../../../dispatcher/payloads/ViewRoomPayload";
 import { useDispatcher } from "../../../hooks/useDispatcher";
 import { useMatrixClientContext } from "../../../contexts/MatrixClientContext";
 import { ScopedRoomContextProvider } from "../../../contexts/ScopedRoomContext";
 import { RoomUploadContextProvider } from "../../../viewmodels/room/RoomUploadViewModel";
-import { TimelineRenderingType } from "../../../contexts/RoomContext";
+import { type RoomContextType, TimelineRenderingType } from "../../../contexts/RoomContext";
 import EditorStateTransfer from "../../../utils/EditorStateTransfer";
 import { Layout } from "../../../settings/enums/Layout";
+import { formatRelativeTime } from "../../../DateUtils";
 import { formatList } from "../../../utils/FormattingUtils";
 import { NotificationLevel } from "../../../stores/notifications/NotificationLevel";
 import { type ThreadFeedEntry } from "../../../viewmodels/threads/threadsFeed";
@@ -66,18 +71,28 @@ export function makeThreadRelation(thread: Thread): IEventRelation {
         is_falling_back: true,
     };
 
-    const fallbackEventId = thread.lastReply()?.getId() ?? thread.id;
-    if (fallbackEventId) {
-        relation["m.in_reply_to"] = { event_id: fallbackEventId };
-    }
+    relation["m.in_reply_to"] = { event_id: thread.lastReply()?.getId() ?? thread.id };
 
     return relation;
 }
 
-/** The thread's replies, oldest first, excluding the root event. */
-function getReplies(thread: Thread): MatrixEvent[] {
+/**
+ * The thread's renderable replies, oldest first, excluding the root event.
+ *
+ * The SDK puts reactions and edits into the thread's timeline alongside real replies. They have
+ * no tile renderer, so passing them to `EventTile` renders a literal "This event could not be
+ * displayed" row — and since people habitually react to the newest message, a collapsed card's
+ * last-two-replies slice would very often be one reply and one error row. This applies the same
+ * pair of predicates `TimelinePanel` uses when it builds tiles.
+ */
+function getReplies(thread: Thread, client: MatrixClient, context: RoomContextType): MatrixEvent[] {
     const rootId = thread.rootEvent?.getId();
-    return thread.timeline.filter((event) => event.getId() !== rootId);
+    return thread.timeline.filter(
+        (event) =>
+            event.getId() !== rootId &&
+            haveRendererForEvent(event, client, context.showHiddenEvents) &&
+            !shouldHideEvent(event, context),
+    );
 }
 
 /**
@@ -96,11 +111,16 @@ function editStateFor(editState: EditorStateTransfer | undefined, event: MatrixE
     return editState.getEvent().getId() === event.getId() ? editState : undefined;
 }
 
-/** Display names of everyone who has spoken in the thread, in first-spoke order. */
-function getParticipantNames(thread: Thread): string[] {
+/**
+ * Display names of everyone who has spoken in the thread, in first-spoke order.
+ *
+ * Takes already-filtered replies so that somebody who only reacted is not listed as having
+ * taken part in the conversation.
+ */
+function getParticipantNames(thread: Thread, replies: MatrixEvent[]): string[] {
     const seen = new Set<string>();
     const names: string[] = [];
-    const events = thread.rootEvent ? [thread.rootEvent, ...getReplies(thread)] : getReplies(thread);
+    const events = thread.rootEvent ? [thread.rootEvent, ...replies] : replies;
 
     for (const event of events) {
         const sender = event.getSender();
@@ -115,8 +135,17 @@ function getParticipantNames(thread: Thread): string[] {
 /**
  * A single thread in the cross-room feed: the room it belongs to, the thread root, and
  * either a preview of recent replies or the full conversation with a composer.
+ *
+ * Memoized because a card is expensive — several event tiles, avatars and relation lookups — and
+ * the feed keeps entry objects referentially stable for rooms that have not changed, so a reply
+ * arriving in one room re-renders only that room's cards.
  */
-export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }: ThreadCardProps): JSX.Element {
+export const ThreadCard = memo(function ThreadCard({
+    entry,
+    expanded,
+    onToggleExpanded,
+    resizeNotifier,
+}: ThreadCardProps): JSX.Element {
     const { thread, room } = entry;
     const client = useMatrixClientContext();
     const roomContext = useThreadCardRoomContext(room, thread);
@@ -125,7 +154,7 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
     const [replyToEvent, setReplyToEvent] = useState<MatrixEvent | undefined>();
     const [editState, setEditState] = useState<EditorStateTransfer | undefined>();
 
-    const replies = getReplies(thread);
+    const replies = getReplies(thread, client, roomContext);
     // Until a thread's timeline has been paginated the only reply available is the one the
     // server bundles with the root event, so fall back to it rather than showing a card with
     // no replies at all.
@@ -209,6 +238,30 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
         setEditState(undefined);
     }, [expanded]);
 
+    // Clicking a composer-shaped "Reply…" button should put the caret in the composer that
+    // replaces it, as it does in Slack. `MessageComposer` does not autofocus; it only takes focus
+    // from this action, and the button that was clicked has just been unmounted, so without this
+    // focus falls back to the document body.
+    useEffect(() => {
+        if (!expanded) return;
+        defaultDispatcher.dispatch<FocusComposerPayload>({
+            action: Action.FocusSendMessageComposer,
+            context: TimelineRenderingType.Thread,
+        });
+    }, [expanded]);
+
+    const onKeyDown = useCallback(
+        (ev: React.KeyboardEvent) => {
+            if (!expanded || ev.key !== "Escape") return;
+            // Only collapse if the key press was not consumed by something inside the card, such
+            // as a composer autocomplete or an open menu.
+            if (ev.defaultPrevented) return;
+            ev.stopPropagation();
+            onToggleExpanded(thread.id);
+        },
+        [expanded, onToggleExpanded, thread.id],
+    );
+
     // "Show N more replies" counts every reply the thread has, but a thread seeded from sync may
     // only have its bundled latest reply loaded. Fetch one page on expand so the promised replies
     // actually appear, instead of the count being replaced by a "load earlier" button. Bounded to
@@ -252,7 +305,7 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
         });
     }, [room.roomId, thread.id]);
 
-    const participantNames = getParticipantNames(thread);
+    const participantNames = getParticipantNames(thread, replies);
     // Ties the expand/collapse controls to the region they disclose, so a screen reader
     // announces the card's state rather than treating each control as a plain button.
     const bodyId = useId();
@@ -333,15 +386,6 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
                         permalinkCreator={permalinkCreator}
                         compact={true}
                     />
-                    <button
-                        type="button"
-                        className="mx_ThreadCard_collapse"
-                        onClick={onExpand}
-                        aria-expanded={expanded}
-                        aria-controls={bodyId}
-                    >
-                        {_t("threads_view|collapse")}
-                    </button>
                 </>
             ) : (
                 <button
@@ -359,13 +403,14 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
 
     return (
         <ScopedRoomContextProvider {...roomContext} replyToEvent={replyToEvent}>
-            <section
+            <article
                 className={classNames("mx_ThreadCard", {
                     mx_ThreadCard_expanded: expanded,
                 })}
                 aria-label={_t("threads_view|card_label", {
                     roomName: room.name,
                 })}
+                onKeyDown={onKeyDown}
             >
                 <header className="mx_ThreadCard_roomHeader">
                     <button
@@ -380,6 +425,28 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
                     {entry.level > NotificationLevel.None && (
                         <StatelessNotificationBadge level={entry.level} count={0} symbol={null} forceDot={true} />
                     )}
+                    {/* The feed is sorted by recency and spans every room, so a card needs to say
+                        when it was last active. Event tiles alone cannot: they show time of day,
+                        and the date separators that supply the missing context in a room timeline
+                        do not exist here. */}
+                    <time className="mx_ThreadCard_lastActivity" dateTime={new Date(entry.latestTs).toISOString()}>
+                        {formatRelativeTime(new Date(entry.latestTs), roomContext.showTwelveHourTimestamps)}
+                    </time>
+                    {expanded && (
+                        // Kept in the header rather than below the composer: an expanded card can be
+                        // taller than the viewport, and a collapse control at the very bottom means
+                        // scrolling the whole conversation to find the way back.
+                        <button
+                            type="button"
+                            className="mx_ThreadCard_collapse"
+                            onClick={onExpand}
+                            aria-expanded={expanded}
+                            aria-controls={bodyId}
+                        >
+                            {_t("threads_view|collapse")}
+                        </button>
+                    )}
+                    {/* Last in the header so that it wraps onto its own line below the room name. */}
                     {participantNames.length > 0 && (
                         <span className="mx_ThreadCard_participants">{formatList(participantNames, 2, true)}</span>
                     )}
@@ -395,7 +462,7 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
                 ) : (
                     body
                 )}
-            </section>
+            </article>
         </ScopedRoomContextProvider>
     );
-}
+});

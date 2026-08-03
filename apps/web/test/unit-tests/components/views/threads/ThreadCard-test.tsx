@@ -12,7 +12,7 @@ import { type MatrixClient, type MatrixEvent, PendingEventOrdering, Room, type T
 import MatrixClientContext from "../../../../../src/contexts/MatrixClientContext";
 import { SDKContext } from "../../../../../src/contexts/SDKContext";
 import { SDKContextClass } from "../../../../../src/contexts/SDKContextClass";
-import { stubClient } from "../../../../test-utils";
+import { mkReaction, stubClient } from "../../../../test-utils";
 import { populateThread } from "../../../../test-utils/threads";
 import { ThreadCard } from "../../../../../src/components/views/threads/ThreadCard";
 import { type ThreadFeedEntry } from "../../../../../src/viewmodels/threads/threadsFeed";
@@ -201,6 +201,35 @@ describe("ThreadCard", () => {
 
         expect(screen.getByTestId(`tile-${b.reply.getId()}`)).toHaveAttribute("data-editing", "yes");
         expect(screen.getByTestId(`tile-${a.reply.getId()}`)).toHaveAttribute("data-editing", "no");
+    });
+
+    it("does not build a tile for a reaction sitting in the thread timeline", async () => {
+        const a = await makeEntry("!a:example.org");
+
+        // The SDK puts reactions into the thread's own timeline. They have no tile renderer, so
+        // rendering one produces a literal "This event could not be displayed" row on the card.
+        const reaction = mkReaction(a.reply);
+        act(() => {
+            a.thread.addEvent(reaction, false, true);
+        });
+
+        renderCards([{ entry: a.entry, expanded: true }]);
+
+        expect(screen.queryByTestId(`tile-${reaction.getId()}`)).toBeNull();
+        expect(screen.getByTestId(`tile-${a.reply.getId()}`)).toBeInTheDocument();
+    });
+
+    it("does not count a reaction-only sender as a thread participant", async () => {
+        const a = await makeEntry("!a:example.org");
+
+        const reaction = mkReaction(a.reply, { user: "@lurker:example.org" });
+        act(() => {
+            a.thread.addEvent(reaction, false, true);
+        });
+
+        renderCards([{ entry: a.entry, expanded: false }]);
+
+        expect(screen.queryByText(/lurker/)).toBeNull();
     });
 
     it("gives the composer an upload context only while expanded", async () => {

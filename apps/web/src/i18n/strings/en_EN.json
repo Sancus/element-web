@@ -2981,7 +2981,7 @@
             "label": "Open %(brand)s when you log in to your computer",
             "minimised": "Minimised"
         },
-        "tac_only_notifications": "Only show notifications in the thread activity centre",
+        "tac_only_notifications": "Only show thread notifications on the Threads page",
         "use_12_hour_format": "Show timestamps in 12 hour format (e.g. 2:30pm)",
         "use_command_enter_send_message": "Use Command + Enter to send a message",
         "use_command_f_search": "Use Command + F to search timeline",
@@ -3294,6 +3294,7 @@
         "load_more": "Look for older threads",
         "loading": "Loading…",
         "reply_prompt": "Reply…",
+        "searching": "Looking for your threads…",
         "show_more_replies": {
             "one": "Show 1 more reply",
             "other": "Show %(count)s more replies"
