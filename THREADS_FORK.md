@@ -227,5 +227,21 @@ problem for module-provided pages.
    `apps/web/playwright/e2e/spaces/threads/` after changing selection or ordering.
    `useThreadsFeed-test.tsx` drives the throttled rescans with fake timers; the throttle constants
    are duplicated there, so change both together.
+4. Fixture threads must be ones the user took part in or was pinged in, or the feed will correctly
+   refuse to show them. `populateThreads` does this deliberately; a thread built only from other
+   people's messages cannot be used as fixture data. The specs inherited from the Threads Activity
+   Centre suite listed any unread thread, which is why this was wrong at first.
+
+### Running the Playwright specs on this machine
+
+Port 8080 is held by `thunderbird-accounts-stalwart-1`, and this fails in a way that wastes a lot
+of time: Stalwart's admin UI answers `/config.json` with HTTP 200, which is exactly the readiness
+probe `playwright.config.ts` uses, and `reuseExistingServer` is true — so the whole suite runs
+against a mail admin page and every test fails for unrelated reasons. Moving to another port does
+not help on its own, because `routeConfigJson` in `packages/playwright-common` hardcodes
+`http://localhost:8080/config.json*` as its interception pattern, so the app silently receives no
+test config. Either free 8080, or serve on another port and write a local `apps/web/config.json`
+mirroring the harness's `CONFIG_JSON` (gitignored) — noting that the per-test `config` and
+`labsFlags` fixtures do not apply under that workaround.
 4. Validate against the ~1,000-room benchmark account before widening the backfill batch
    sizes or loosening the throttle.

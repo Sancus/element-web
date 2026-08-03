@@ -236,6 +236,14 @@ export class Helpers {
     }
 
     /**
+     * Sends messages into the given room as the logged-in user, which is what makes them a
+     * participant in a thread and so puts it in the feed.
+     */
+    async sendMessages(room: RoomRef, messages: Message[]) {
+        await this.sendMessageAsClient(this.app.client, room, messages);
+    }
+
+    /**
      * Get the space panel button that opens the threads page
      */
     getThreadsNavButton(): Locator {
@@ -275,11 +283,11 @@ export class Helpers {
      * Assert that the threads nav button has no indicator
      */
     async assertNoThreadsIndicator() {
-        // Assert by checking neither of the known indicators are visible first. This will wait
-        // if it takes a little time to disappear, but the screenshot comparison won't.
+        // The inverse of the two positive assertions below, which is enough on its own: the
+        // indicator is a real element, so a screenshot would only restate this while adding a
+        // baseline image to maintain.
         await expect(this.getThreadsNavButton().locator("[data-indicator='success']")).not.toBeVisible();
         await expect(this.getThreadsNavButton().locator("[data-indicator='critical']")).not.toBeVisible();
-        await expect(this.getThreadsNavButton()).toMatchScreenshot("threads-nav-no-indicator.png");
     }
 
     /**
@@ -329,35 +337,51 @@ export class Helpers {
     }
 
     /**
-     * Populate the rooms with messages and threads
-     * @param room1
-     * @param room2
-     * @param msg - MessageBuilder
-     * @param user - the user to mention in the first message
-     * @param hasMention - whether to include a mention in the first message
+     * A threaded reply from the bot that pings the user, which is one of the two things that puts
+     * a thread in the feed.
      */
-    async populateThreads(
-        room1: { name: string; roomId: string },
-        room2: { name: string; roomId: string },
-        msg: MessageBuilder,
-        user: Credentials,
-        hasMention = true,
-    ) {
+    private mentionOf(msg: MessageBuilder, rootMessage: string, user: Credentials): MessageContentSpec {
+        return msg.threadedOff(rootMessage, {
+            "body": user.displayName,
+            "format": "org.matrix.custom.html",
+            "formatted_body": `<a href="https://matrix.to/#/${user.userId}">${user.displayName}</a>`,
+            "m.mentions": { user_ids: [user.userId] },
+        });
+    }
+
+    /**
+     * Have the bot start a thread and ping the user in it, so it reaches the feed as a mention
+     * without the user having taken part.
+     */
+    async receiveThreadMentioningUser(room: RoomRef, msg: MessageBuilder, user: Credentials, rootMessage: string) {
+        await this.receiveMessages(room, [rootMessage, this.mentionOf(msg, rootMessage, user)]);
+    }
+
+    /**
+     * Have the bot start a thread and the user reply in it, so it reaches the feed by
+     * participation.
+     */
+    async receiveThreadWithOwnReply(room: RoomRef, msg: MessageBuilder, rootMessage: string, reply: string) {
+        await this.receiveMessages(room, [rootMessage, msg.threadedOff(rootMessage, `Resp to ${rootMessage}`)]);
+        await this.sendMessages(room, [msg.threadedOff(rootMessage, reply)]);
+    }
+
+    /**
+     * Populate the rooms with threads that the feed will actually show.
+     *
+     * The feed lists threads the user has taken part in or been mentioned in, so a thread composed
+     * entirely of other people's messages is deliberately excluded and cannot be used as fixture
+     * data here. Msg1 reaches the feed as a mention and Msg2/Msg3 by participation, which also
+     * gives the Mentions filter exactly one thread to find.
+     *
+     * Ordering, oldest activity first: Msg1, Msg2, Msg3 — so the feed shows the reverse.
+     */
+    async populateThreads(room1: RoomRef, room2: RoomRef, msg: MessageBuilder, user: Credentials, hasMention = true) {
         if (hasMention) {
-            await this.receiveMessages(room2, [
-                "Msg1",
-                msg.threadedOff("Msg1", {
-                    "body": "User",
-                    "format": "org.matrix.custom.html",
-                    "formatted_body": `<a href="https://matrix.to/#/${user.userId}">User</a>`,
-                    "m.mentions": {
-                        user_ids: [user.userId],
-                    },
-                }),
-            ]);
+            await this.receiveThreadMentioningUser(room2, msg, user, "Msg1");
         }
-        await this.receiveMessages(room2, ["Msg2", msg.threadedOff("Msg2", "Resp2")]);
-        await this.receiveMessages(room1, ["Msg3", msg.threadedOff("Msg3", "Resp3")]);
+        await this.receiveThreadWithOwnReply(room2, msg, "Msg2", "My reply to Msg2");
+        await this.receiveThreadWithOwnReply(room1, msg, "Msg3", "My reply to Msg3");
     }
 
     /**
