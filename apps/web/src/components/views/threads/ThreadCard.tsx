@@ -5,7 +5,7 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import React, { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import React, { type JSX, useCallback, useEffect, useId, useRef, useState } from "react";
 import {
     Direction,
     type IEventRelation,
@@ -253,11 +253,14 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
     }, [room.roomId, thread.id]);
 
     const participantNames = getParticipantNames(thread);
+    // Ties the expand/collapse controls to the region they disclose, so a screen reader
+    // announces the card's state rather than treating each control as a plain button.
+    const bodyId = useId();
 
     const body = (
-        <div className="mx_ThreadCard_body">
+        <div className="mx_ThreadCard_body" id={bodyId}>
             {/* `EventTile` renders as an `li` in thread mode, so the events form a real
-                        list, with the controls that sit between them as list items too. */}
+                list, with the controls that sit between them as list items too. */}
             <ol className="mx_ThreadCard_events">
                 {thread.rootEvent && (
                     <EventTile
@@ -289,7 +292,13 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
 
                 {!expanded && hiddenReplyCount > 0 && (
                     <li className="mx_ThreadCard_control">
-                        <button type="button" className="mx_ThreadCard_showMore" onClick={onExpand}>
+                        <button
+                            type="button"
+                            className="mx_ThreadCard_showMore"
+                            onClick={onExpand}
+                            aria-expanded={expanded}
+                            aria-controls={bodyId}
+                        >
                             {_t("threads_view|show_more_replies", {
                                 count: hiddenReplyCount,
                             })}
@@ -324,12 +333,24 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
                         permalinkCreator={permalinkCreator}
                         compact={true}
                     />
-                    <button type="button" className="mx_ThreadCard_collapse" onClick={onExpand}>
+                    <button
+                        type="button"
+                        className="mx_ThreadCard_collapse"
+                        onClick={onExpand}
+                        aria-expanded={expanded}
+                        aria-controls={bodyId}
+                    >
                         {_t("threads_view|collapse")}
                     </button>
                 </>
             ) : (
-                <button type="button" className="mx_ThreadCard_replyPrompt" onClick={onExpand}>
+                <button
+                    type="button"
+                    className="mx_ThreadCard_replyPrompt"
+                    onClick={onExpand}
+                    aria-expanded={expanded}
+                    aria-controls={bodyId}
+                >
                     {_t("threads_view|reply_prompt")}
                 </button>
             )}
