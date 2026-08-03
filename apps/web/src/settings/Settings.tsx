@@ -334,6 +334,7 @@ export interface Settings {
     "RoomList.panelSize": IBaseSetting<number | null>;
     "RoomList.isPanelCollapsed": IBaseSetting<boolean>;
     "RoomList.showMessagePreview": IBaseSetting<boolean>;
+    "RoomList.compactLayout": IBaseSetting<boolean>;
     "RightPanel.phasesGlobal": IBaseSetting<IRightPanelForRoomStored | null>;
     "RightPanel.phases": IBaseSetting<IRightPanelForRoomStored | null>;
     "enableEventIndexing": IBaseSetting<boolean>;
@@ -1221,6 +1222,14 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
         default: false,
         displayName: _td("settings|show_message_previews"),
+    },
+    /**
+     * Whether the room list uses the compact row: a shorter single-line row with a smaller avatar,
+     * picked from the room list options menu.
+     */
+    "RoomList.compactLayout": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
+        default: false,
     },
     "RoomList.showSections": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,

@@ -149,3 +149,17 @@
 .lastItem {
     --padding-bottom: 0px;
 }
+
+/*
+ * The compact row (picked from the room list options menu, which sets [data-density] on the list
+ * container). Message previews are forced off at the view-model level so rows are always
+ * single-line. --room-list-avatar-size is read by whoever renders the avatar, which is the
+ * embedding app rather than this package.
+ */
+[data-density="compact"] .roomListItem {
+    --padding-top: 0px;
+    --padding-bottom: 0px;
+    --room-list-avatar-size: 26px;
+
+    min-height: 32px;
+}

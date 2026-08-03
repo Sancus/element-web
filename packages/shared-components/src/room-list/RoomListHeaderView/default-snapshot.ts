@@ -16,6 +16,7 @@ export const defaultSnapshot: RoomListHeaderViewSnapshot = {
     canAccessSpaceSettings: true,
     activeSortOption: "recent",
     isMessagePreviewEnabled: true,
+    isCompactLayoutEnabled: false,
     displaySectionReleaseAnnouncement: false,
     areSectionsEnabled: true,
 };

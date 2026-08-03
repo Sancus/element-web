@@ -109,7 +109,12 @@ describe("RoomListItemViewModel", () => {
         });
 
         it("should load message preview when enabled", async () => {
-            jest.spyOn(SettingsStore, "getValue").mockReturnValue(true);
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
+                if (setting === "RoomList.showMessagePreview") return true;
+                if (setting === "RoomList.OrderedCustomSections") return [];
+                if (setting === "RoomList.CustomSectionData") return {};
+                return false;
+            });
             jest.spyOn(MessagePreviewStore.instance, "getPreviewForRoom").mockResolvedValue({
                 text: "Hello world!",
             } as MessagePreview);
@@ -193,7 +198,12 @@ describe("RoomListItemViewModel", () => {
 
     describe("Message preview", () => {
         it("should update message preview when store emits update", async () => {
-            jest.spyOn(SettingsStore, "getValue").mockReturnValue(true);
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
+                if (setting === "RoomList.showMessagePreview") return true;
+                if (setting === "RoomList.OrderedCustomSections") return [];
+                if (setting === "RoomList.CustomSectionData") return {};
+                return false;
+            });
             jest.spyOn(MessagePreviewStore.instance, "getPreviewForRoom").mockResolvedValue({
                 text: "Initial message",
             } as MessagePreview);
@@ -218,7 +228,12 @@ describe("RoomListItemViewModel", () => {
             let showPreview = false;
             let watchCallback: any;
 
-            jest.spyOn(SettingsStore, "getValue").mockImplementation(() => showPreview);
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
+                if (setting === "RoomList.showMessagePreview") return showPreview;
+                if (setting === "RoomList.OrderedCustomSections") return [];
+                if (setting === "RoomList.CustomSectionData") return {};
+                return false;
+            });
             jest.spyOn(SettingsStore, "watchSetting").mockImplementation((setting, _room, callback) => {
                 if (setting === "RoomList.showMessagePreview") watchCallback = callback;
                 return "watcher-id";
@@ -238,6 +253,56 @@ describe("RoomListItemViewModel", () => {
 
             await flushPromises();
             expect(viewModel.getSnapshot().messagePreview).toBe("Test message");
+        });
+
+        it("should not load message preview in the compact layout", async () => {
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
+                if (setting === "RoomList.showMessagePreview") return true;
+                if (setting === "RoomList.compactLayout") return true;
+                if (setting === "RoomList.OrderedCustomSections") return [];
+                if (setting === "RoomList.CustomSectionData") return {};
+                return false;
+            });
+            jest.spyOn(MessagePreviewStore.instance, "getPreviewForRoom").mockResolvedValue({
+                text: "Test message",
+            } as MessagePreview);
+
+            viewModel = new RoomListItemViewModel({ room, client: matrixClient });
+
+            await flushPromises();
+            expect(viewModel.getSnapshot().messagePreview).toBeUndefined();
+        });
+
+        it("should hide preview when the compact layout is turned on", async () => {
+            let isCompactLayoutEnabled = false;
+            let watchCallback: any;
+
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
+                if (setting === "RoomList.showMessagePreview") return true;
+                if (setting === "RoomList.compactLayout") return isCompactLayoutEnabled;
+                if (setting === "RoomList.OrderedCustomSections") return [];
+                if (setting === "RoomList.CustomSectionData") return {};
+                return false;
+            });
+            jest.spyOn(SettingsStore, "watchSetting").mockImplementation((setting, _room, callback) => {
+                if (setting === "RoomList.compactLayout") watchCallback = callback;
+                return "watcher-id";
+            });
+            jest.spyOn(MessagePreviewStore.instance, "getPreviewForRoom").mockResolvedValue({
+                text: "Test message",
+            } as MessagePreview);
+
+            viewModel = new RoomListItemViewModel({ room, client: matrixClient });
+
+            await flushPromises();
+            expect(viewModel.getSnapshot().messagePreview).toBe("Test message");
+
+            // Turn on the compact layout: the preview must be cleared
+            isCompactLayoutEnabled = true;
+            watchCallback(null, "device", isCompactLayoutEnabled);
+
+            await flushPromises();
+            expect(viewModel.getSnapshot().messagePreview).toBeUndefined();
         });
     });
 

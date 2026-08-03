@@ -50,6 +50,8 @@ export type RoomListViewSnapshot = {
     canCreateRoom?: boolean;
     /** Whether the room list is displayed as a flat list */
     isFlatList: boolean;
+    /** Whether the room list uses the compact single-line row */
+    isCompactLayoutEnabled?: boolean;
     /**
      * The single toast to display (if any). The view model owns which toast wins when more
      * than one applies (e.g. a transient "chat_moved" event toast takes precedence over the
@@ -147,7 +149,11 @@ export const RoomListView: React.FC<RoomListViewProps> = ({ vm, renderAvatar, on
                     onToggleFilter={vm.onToggleFilter}
                 />
             </div>
-            <Flex direction="column" className={styles.list}>
+            <Flex
+                direction="column"
+                className={styles.list}
+                data-density={snapshot.isCompactLayoutEnabled ? "compact" : undefined}
+            >
                 <AutoHideScrollbar className={styles.scrollbar}>
                     {listBody}
                     {snapshot.toast && (

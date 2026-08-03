@@ -121,4 +121,34 @@ describe("<OptionMenuView />", () => {
         await user.click(screen.getByRole("menuitemcheckbox", { name: "Show message previews" }));
         expect(vm.toggleMessagePreview).toHaveBeenCalled();
     });
+
+    it("should toggle the compact layout", async () => {
+        const user = userEvent.setup();
+
+        const vm = new MockedViewModel({ ...defaultSnapshot, isCompactLayoutEnabled: false });
+        render(<OptionMenuView vm={vm} />);
+
+        await user.click(screen.getByRole("button", { name: "Room Options" }));
+        expect(screen.getByRole("menuitemcheckbox", { name: "Compact layout" })).not.toBeChecked();
+
+        await user.click(screen.getByRole("menuitemcheckbox", { name: "Compact layout" }));
+        expect(vm.toggleCompactLayout).toHaveBeenCalled();
+    });
+
+    it("should disable and uncheck message previews in the compact layout", async () => {
+        const user = userEvent.setup();
+
+        const vm = new MockedViewModel({
+            ...defaultSnapshot,
+            isMessagePreviewEnabled: true,
+            isCompactLayoutEnabled: true,
+        });
+        render(<OptionMenuView vm={vm} />);
+
+        await user.click(screen.getByRole("button", { name: "Room Options" }));
+
+        const previewCheckbox = screen.getByRole("menuitemcheckbox", { name: "Show message previews" });
+        expect(previewCheckbox).not.toBeChecked();
+        expect(previewCheckbox).toBeDisabled();
+    });
 });

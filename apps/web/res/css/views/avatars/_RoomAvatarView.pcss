@@ -8,6 +8,13 @@
 .mx_RoomAvatarView {
     --room-avatar-size: 32px;
 
+    /* Derived from the avatar size so the decorations keep their proportions when it is scaled
+       down, as the compact room list densities do. At the default 32px these are the 16px, 8px
+       and 2px they have always been. */
+    --room-avatar-icon-size: calc(var(--room-avatar-size) / 2);
+    --room-avatar-presence-size: calc(var(--room-avatar-size) / 4);
+    --room-avatar-decoration-inset: calc(var(--room-avatar-size) / 16);
+
     position: relative;
 
     /* Keep the container to the same size than the avatar */
@@ -31,19 +38,21 @@
 
     .mx_RoomAvatarView_icon {
         position: absolute;
+        inline-size: var(--room-avatar-icon-size);
+        block-size: var(--room-avatar-icon-size);
 
         /* Place half the icon inside the avatar */
-        /* Avatar size - (icon size (16px) / 2) */
-        left: calc((var(--room-avatar-size) - 8px));
-        bottom: var(--cpd-space-0-5x);
+        left: calc(var(--room-avatar-size) - var(--room-avatar-icon-size) / 2);
+        bottom: var(--room-avatar-decoration-inset);
     }
 
     .mx_RoomAvatarView_PresenceDecoration {
         position: absolute;
+        inline-size: var(--room-avatar-presence-size);
+        block-size: var(--room-avatar-presence-size);
 
         /* Place half the icon inside the avatar */
-        /* Avatar size - (icon size (8px) / 2) */
-        left: calc((var(--room-avatar-size) - 4px));
-        bottom: var(--cpd-space-0-5x);
+        left: calc(var(--room-avatar-size) - var(--room-avatar-presence-size) / 2);
+        bottom: var(--room-avatar-decoration-inset);
     }
 }

@@ -51,7 +51,7 @@ exports[`<VirtualizedRoomListView /> > renders Default story 1`] = `
                   <div
                     aria-label="General avatar"
                     role="img"
-                    style="width: 32px; height: 32px; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;"
+                    style="width: var(--room-list-avatar-size, 32px); height: var(--room-list-avatar-size, 32px); flex-shrink: 0; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: calc(var(--room-list-avatar-size, 32px) * 0.375);"
                   >
                     GE
                   </div>
@@ -131,7 +131,7 @@ exports[`<VirtualizedRoomListView /> > renders Default story 1`] = `
                   <div
                     aria-label="Random avatar"
                     role="img"
-                    style="width: 32px; height: 32px; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;"
+                    style="width: var(--room-list-avatar-size, 32px); height: var(--room-list-avatar-size, 32px); flex-shrink: 0; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: calc(var(--room-list-avatar-size, 32px) * 0.375);"
                   >
                     RA
                   </div>
@@ -184,7 +184,7 @@ exports[`<VirtualizedRoomListView /> > renders Default story 1`] = `
                   <div
                     aria-label="Engineering avatar"
                     role="img"
-                    style="width: 32px; height: 32px; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;"
+                    style="width: var(--room-list-avatar-size, 32px); height: var(--room-list-avatar-size, 32px); flex-shrink: 0; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: calc(var(--room-list-avatar-size, 32px) * 0.375);"
                   >
                     EN
                   </div>
@@ -243,7 +243,7 @@ exports[`<VirtualizedRoomListView /> > renders Default story 1`] = `
                   <div
                     aria-label="Design avatar"
                     role="img"
-                    style="width: 32px; height: 32px; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;"
+                    style="width: var(--room-list-avatar-size, 32px); height: var(--room-list-avatar-size, 32px); flex-shrink: 0; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: calc(var(--room-list-avatar-size, 32px) * 0.375);"
                   >
                     DE
                   </div>
@@ -296,7 +296,7 @@ exports[`<VirtualizedRoomListView /> > renders Default story 1`] = `
                   <div
                     aria-label="Product avatar"
                     role="img"
-                    style="width: 32px; height: 32px; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;"
+                    style="width: var(--room-list-avatar-size, 32px); height: var(--room-list-avatar-size, 32px); flex-shrink: 0; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: calc(var(--room-list-avatar-size, 32px) * 0.375);"
                   >
                     PR
                   </div>
@@ -355,7 +355,7 @@ exports[`<VirtualizedRoomListView /> > renders Default story 1`] = `
                   <div
                     aria-label="Marketing avatar"
                     role="img"
-                    style="width: 32px; height: 32px; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;"
+                    style="width: var(--room-list-avatar-size, 32px); height: var(--room-list-avatar-size, 32px); flex-shrink: 0; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: calc(var(--room-list-avatar-size, 32px) * 0.375);"
                   >
                     MA
                   </div>
@@ -431,7 +431,7 @@ exports[`<VirtualizedRoomListView /> > renders Default story 1`] = `
                   <div
                     aria-label="Sales avatar"
                     role="img"
-                    style="width: 32px; height: 32px; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;"
+                    style="width: var(--room-list-avatar-size, 32px); height: var(--room-list-avatar-size, 32px); flex-shrink: 0; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: calc(var(--room-list-avatar-size, 32px) * 0.375);"
                   >
                     SA
                   </div>
@@ -490,7 +490,7 @@ exports[`<VirtualizedRoomListView /> > renders Default story 1`] = `
                   <div
                     aria-label="Support avatar"
                     role="img"
-                    style="width: 32px; height: 32px; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;"
+                    style="width: var(--room-list-avatar-size, 32px); height: var(--room-list-avatar-size, 32px); flex-shrink: 0; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: calc(var(--room-list-avatar-size, 32px) * 0.375);"
                   >
                     SU
                   </div>
@@ -543,7 +543,7 @@ exports[`<VirtualizedRoomListView /> > renders Default story 1`] = `
                   <div
                     aria-label="Announcements avatar"
                     role="img"
-                    style="width: 32px; height: 32px; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;"
+                    style="width: var(--room-list-avatar-size, 32px); height: var(--room-list-avatar-size, 32px); flex-shrink: 0; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: calc(var(--room-list-avatar-size, 32px) * 0.375);"
                   >
                     AN
                   </div>
@@ -602,7 +602,7 @@ exports[`<VirtualizedRoomListView /> > renders Default story 1`] = `
                   <div
                     aria-label="Off-topic avatar"
                     role="img"
-                    style="width: 32px; height: 32px; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;"
+                    style="width: var(--room-list-avatar-size, 32px); height: var(--room-list-avatar-size, 32px); flex-shrink: 0; border-radius: 50%; background-color: rgb(11, 127, 103); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: calc(var(--room-list-avatar-size, 32px) * 0.375);"
                   >
                     OF
                   </div>

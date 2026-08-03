@@ -25,8 +25,10 @@ export const mockAvatar = (name: string): React.ReactElement => (
         role="img"
         aria-label={`${name} avatar`}
         style={{
-            width: "32px",
-            height: "32px",
+            // Follows the room list's compact densities the way the real avatar does in the app
+            width: "var(--room-list-avatar-size, 32px)",
+            height: "var(--room-list-avatar-size, 32px)",
+            flexShrink: 0,
             borderRadius: "50%",
             backgroundColor: "#0B7F67",
             display: "flex",
@@ -34,7 +36,7 @@ export const mockAvatar = (name: string): React.ReactElement => (
             justifyContent: "center",
             color: "white",
             fontWeight: "bold",
-            fontSize: "12px",
+            fontSize: "calc(var(--room-list-avatar-size, 32px) * 0.375)",
         }}
     >
         {name.substring(0, 2).toUpperCase()}
@@ -108,8 +110,13 @@ export const createMockRoomSnapshot = (id: string, name: string, index: number):
     areSectionsEnabled: true,
 });
 
-export function createMockRoomItemViewModel(roomId: string, name: string, index: number): RoomListItemViewModel {
-    const snapshot = createMockRoomSnapshot(roomId, name, index);
+export function createMockRoomItemViewModel(
+    roomId: string,
+    name: string,
+    index: number,
+    snapshotOverrides: Partial<RoomListItemViewSnapshot> = {},
+): RoomListItemViewModel {
+    const snapshot = { ...createMockRoomSnapshot(roomId, name, index), ...snapshotOverrides };
     return {
         getSnapshot: () => snapshot,
         subscribe: fn(),
@@ -131,11 +138,14 @@ export function createMockRoomItemViewModel(roomId: string, name: string, index:
 /**
  * Create a mock getRoomItemViewModel function for stories
  */
-export const createGetRoomItemViewModel = (roomIds: string[]): ((roomId: string) => RoomListItemViewModel) => {
+export const createGetRoomItemViewModel = (
+    roomIds: string[],
+    snapshotOverrides: Partial<RoomListItemViewSnapshot> = {},
+): ((roomId: string) => RoomListItemViewModel) => {
     const viewModels = new Map<string, RoomListItemViewModel>();
     roomIds.forEach((roomId, index) => {
         const name = roomNames[index % roomNames.length];
-        viewModels.set(roomId, createMockRoomItemViewModel(roomId, name, index));
+        viewModels.set(roomId, createMockRoomItemViewModel(roomId, name, index, snapshotOverrides));
     });
 
     return (roomId: string) => viewModels.get(roomId)!;

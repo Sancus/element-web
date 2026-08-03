@@ -60,6 +60,10 @@ export interface RoomListHeaderViewSnapshot {
      */
     isMessagePreviewEnabled: boolean;
     /**
+     * Whether the room list uses the compact single-line row.
+     */
+    isCompactLayoutEnabled: boolean;
+    /**
      * Whether sections are enabled in the room list.
      */
     areSectionsEnabled: boolean;
@@ -112,6 +116,10 @@ export interface RoomListHeaderViewActions {
      * Toggle message preview display in the room list.
      */
     toggleMessagePreview: () => void;
+    /**
+     * Toggle the compact row layout of the room list.
+     */
+    toggleCompactLayout: () => void;
     /**
      * Create a new section in the room list.
      */

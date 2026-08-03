@@ -442,6 +442,19 @@ describe("RoomListHeaderViewModel", () => {
             expect(vm.getSnapshot().isMessagePreviewEnabled).toBe(false);
         });
 
+        it("should toggle the compact layout", () => {
+            jest.spyOn(SettingsStore, "getValue").mockImplementation(() => false);
+            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockImplementation(jest.fn());
+
+            vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: sdkContext.spaceStore });
+            expect(vm.getSnapshot().isCompactLayoutEnabled).toBe(false);
+
+            vm.toggleCompactLayout();
+
+            expect(setValueSpy).toHaveBeenCalledWith("RoomList.compactLayout", null, expect.anything(), true);
+            expect(vm.getSnapshot().isCompactLayoutEnabled).toBe(true);
+        });
+
         it("should call nextReleaseAnnouncement and set displaySectionReleaseAnnouncement to false when closeSectionReleaseAnnouncement is called", () => {
             vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: sdkContext.spaceStore });
 

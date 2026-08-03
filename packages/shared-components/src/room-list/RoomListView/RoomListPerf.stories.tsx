@@ -11,7 +11,7 @@ import { Tooltip } from "@vector-im/compound-web";
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { RoomListView, type RoomListViewSnapshot, type RoomListViewActions } from "./RoomListView";
-import type { Room } from "../VirtualizedRoomListView/RoomListItemWrapper/RoomListItemView";
+import type { Room, RoomListItemViewModel } from "../VirtualizedRoomListView/RoomListItemWrapper/RoomListItemView";
 import { useMockedViewModel } from "../../core/viewmodel";
 import {
     mockAvatar,
@@ -20,7 +20,6 @@ import {
     createGetSectionHeaderViewModel,
     createMockRoomItemViewModel,
 } from "../story-mocks";
-import type { RoomListItemViewModel } from "../VirtualizedRoomListView/RoomListItemWrapper/RoomListItemView";
 
 /**
  * Scale at which the room list is exercised here. Chosen to match the "power user" accounts
@@ -208,9 +207,7 @@ const meta = {
         createChatRoom: fn(),
         createRoom: fn(),
         getRoomItemViewModel,
-        getSectionHeaderViewModel: createGetSectionHeaderViewModel(
-            perfGroupedSections.map((section) => section.id),
-        ),
+        getSectionHeaderViewModel: createGetSectionHeaderViewModel(perfGroupedSections.map((section) => section.id)),
         updateVisibleRooms: fn(),
         updateVisibleFold: fn(),
         renderAvatar,

@@ -9,3 +9,20 @@
     background-color: var(--cpd-color-bg-canvas-default);
     height: 100%;
 }
+
+/*
+ * The compact layout. The shared room list shrinks the row and publishes the avatar size it wants
+ * as --room-list-avatar-size; the avatar itself is rendered by the app, so applying that size is
+ * this side's job.
+ */
+[data-density="compact"] .mx_RoomListItemView {
+    .mx_RoomAvatarView {
+        --room-avatar-size: var(--room-list-avatar-size, 32px);
+    }
+
+    /* The component sets --cpd-avatar-size inline from its size prop, so this has to shout to be
+       heard. Everything else about the avatar (the image, the fallback initial) derives from it. */
+    .mx_BaseAvatar {
+        --cpd-avatar-size: var(--room-list-avatar-size, 32px) !important;
+    }
+}

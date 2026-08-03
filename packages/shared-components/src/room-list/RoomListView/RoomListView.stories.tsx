@@ -143,6 +143,19 @@ export const Section: Story = {
     },
 };
 
+/*
+ * Previews are dropped from the rows here because the app forces them off in the compact layout.
+ * No visual baseline: the story exists to be looked at, and the rows it renders are the same ones
+ * the default story already covers.
+ */
+export const Compact: Story = {
+    tags: ["autodocs", "!snapshot"],
+    args: {
+        isCompactLayoutEnabled: true,
+        getRoomItemViewModel: createGetRoomItemViewModel(mockRoomIds, { messagePreview: undefined }),
+    },
+};
+
 export const Loading: Story = {
     args: {
         isLoadingRooms: true,

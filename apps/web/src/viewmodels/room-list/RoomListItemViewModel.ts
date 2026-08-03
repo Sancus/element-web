@@ -118,6 +118,16 @@ export class RoomListItemViewModel
             SettingsStore.unwatchSetting(settingsWatchRef);
         });
 
+        // The compact layout forces message previews off, so reload the preview when it changes
+        const compactLayoutWatchRef = SettingsStore.watchSetting(
+            "RoomList.compactLayout",
+            null,
+            this.onMessagePreviewSettingChanged,
+        );
+        this.disposables.track(() => {
+            SettingsStore.unwatchSetting(compactLayoutWatchRef);
+        });
+
         // Subscribe to settings changes for section toggle
         const settingsShowSectionsRef = SettingsStore.watchSetting(
             "RoomList.showSections",
@@ -269,7 +279,9 @@ export class RoomListItemViewModel
      * Returns undefined if previews are disabled or couldn't be loaded.
      */
     private async loadMessagePreview(): Promise<string | undefined> {
-        const shouldShowMessagePreview = SettingsStore.getValue("RoomList.showMessagePreview");
+        // The compact layout forces single-line rows, so previews are always off there.
+        const shouldShowMessagePreview =
+            SettingsStore.getValue("RoomList.showMessagePreview") && !SettingsStore.getValue("RoomList.compactLayout");
         if (!shouldShowMessagePreview) {
             return undefined;
         }

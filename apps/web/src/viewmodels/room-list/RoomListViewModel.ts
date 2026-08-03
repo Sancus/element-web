@@ -184,6 +184,7 @@ export class RoomListViewModel
                 filterKeys: undefined,
             },
             isFlatList,
+            isCompactLayoutEnabled: SettingsStore.getValue("RoomList.compactLayout"),
             sections: toRoomListSection(sections),
             canCreateRoom,
         });
@@ -227,6 +228,12 @@ export class RoomListViewModel
         // Recompute the lis when setting changes
         const showSectionsRef = SettingsStore.watchSetting("RoomList.showSections", null, this.onShowSectionsChange);
         this.disposables.track(() => SettingsStore.unwatchSetting(showSectionsRef));
+
+        // Reflect compact layout changes in the snapshot
+        const compactLayoutRef = SettingsStore.watchSetting("RoomList.compactLayout", null, () => {
+            this.snapshot.merge({ isCompactLayoutEnabled: SettingsStore.getValue("RoomList.compactLayout") });
+        });
+        this.disposables.track(() => SettingsStore.unwatchSetting(compactLayoutRef));
 
         // Track cleanup of all child view models
         this.disposables.track(() => {

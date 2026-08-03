@@ -33,7 +33,7 @@ interface OptionMenuViewProps {
 export function OptionMenuView({ vm }: OptionMenuViewProps): JSX.Element {
     const { translate: _t } = useI18n();
     const [open, setOpen] = useState(false);
-    const { activeSortOption, isMessagePreviewEnabled } = useViewModel(vm);
+    const { activeSortOption, isMessagePreviewEnabled, isCompactLayoutEnabled } = useViewModel(vm);
 
     return (
         <Menu
@@ -74,7 +74,14 @@ export function OptionMenuView({ vm }: OptionMenuViewProps): JSX.Element {
             <CheckboxMenuItem
                 label={_t("room_list|show_message_previews")}
                 onSelect={vm.toggleMessagePreview}
-                checked={isMessagePreviewEnabled}
+                // The compact layout forces previews off; reflect that and prevent toggling.
+                checked={isMessagePreviewEnabled && !isCompactLayoutEnabled}
+                disabled={isCompactLayoutEnabled}
+            />
+            <CheckboxMenuItem
+                label={_t("room_list|compact_layout")}
+                onSelect={vm.toggleCompactLayout}
+                checked={isCompactLayoutEnabled}
             />
         </Menu>
     );

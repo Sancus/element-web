@@ -131,6 +131,7 @@
         "chat_moved": "Chat moved",
         "collapse_all_sections": "Collapse all sections",
         "collapse_filters": "Collapse filter list",
+        "compact_layout": "Compact layout",
         "empty": {
             "no_chats": "No chats yet",
             "no_chats_description": "Get started by messaging someone or by creating a room",
