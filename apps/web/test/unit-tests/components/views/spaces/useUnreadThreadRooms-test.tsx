@@ -20,7 +20,7 @@ import MatrixClientContext from "../../../../../src/contexts/MatrixClientContext
 import { stubClient } from "../../../../test-utils";
 import { populateThread } from "../../../../test-utils/threads";
 import { NotificationLevel } from "../../../../../src/stores/notifications/NotificationLevel";
-import { useUnreadThreadRooms } from "../../../../../src/components/views/spaces/threads-activity-centre/useUnreadThreadRooms";
+import { useUnreadThreadRooms } from "../../../../../src/components/views/spaces/threads/useUnreadThreadRooms";
 import SettingsStore from "../../../../../src/settings/SettingsStore";
 
 describe("useUnreadThreadRooms", () => {

@@ -58,6 +58,7 @@ import { KeyBindingAction } from "../../accessibility/KeyboardShortcuts";
 import { type SwitchSpacePayload } from "../../dispatcher/payloads/SwitchSpacePayload";
 import LeftPanelLiveShareWarning from "../views/beacon/LeftPanelLiveShareWarning";
 import HomePage from "./HomePage";
+import { ThreadsView } from "./ThreadsView";
 import { PipContainer } from "./PipContainer";
 import { monitorSyncedPushRules } from "../../utils/pushRules/monitorSyncedPushRules";
 import { MatrixClientContextProvider } from "./MatrixClientContextProvider";
@@ -643,6 +644,10 @@ class LoggedInView extends React.Component<IProps, IState> {
                 pageElement = <HomePage justRegistered={this.props.justRegistered} />;
                 break;
 
+            case PageTypes.ThreadsView:
+                pageElement = <ThreadsView />;
+                break;
+
             case PageTypes.UserView:
                 if (!!this.props.currentUserId) {
                     pageElement = (
@@ -698,7 +703,7 @@ class LoggedInView extends React.Component<IProps, IState> {
             // (leftPanel omits it).
             content = (
                 <GroupView vm={resizerViewModel}>
-                    <SpacePanel />
+                    <SpacePanel isThreadsPageActive={this.props.page_type === PageTypes.ThreadsView} />
                     <LeftResizablePanelView
                         vm={resizerViewModel}
                         className="mx_LeftPanel_panel"
@@ -718,7 +723,7 @@ class LoggedInView extends React.Component<IProps, IState> {
             // own layout.
             content = (
                 <>
-                    <SpacePanel />
+                    <SpacePanel isThreadsPageActive={this.props.page_type === PageTypes.ThreadsView} />
                     {leftPanel}
                     {roomView}
                 </>

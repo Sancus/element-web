@@ -69,7 +69,7 @@ import { KeyBindingAction } from "../../../accessibility/KeyboardShortcuts";
 import { getKeyBindingsManager } from "../../../KeyBindingsManager";
 import { shouldShowComponent } from "../../../customisations/helpers/UIComponents";
 import { UIComponent } from "../../../settings/UIFeature";
-import { ThreadsActivityCentre } from "./threads-activity-centre/";
+import { ThreadsNavButton } from "./threads/ThreadsNavButton";
 import AccessibleButton from "../elements/AccessibleButton";
 import { Landmark, LandmarkNavigation } from "../../../accessibility/LandmarkNavigation";
 import { KeyboardShortcut } from "../settings/KeyboardShortcut";
@@ -358,7 +358,15 @@ const InnerSpacePanel = React.memo<IInnerSpacePanelProps>(
     },
 );
 
-const SpacePanel: React.FC = () => {
+interface SpacePanelProps {
+    /**
+     * Whether the threads page is the page currently being shown, used to mark the
+     * threads nav button as selected.
+     */
+    isThreadsPageActive?: boolean;
+}
+
+const SpacePanel: React.FC<SpacePanelProps> = ({ isThreadsPageActive }) => {
     const sdkContext = useContext(SDKContext);
     const client = sdkContext.client!;
     const [dragging, setDragging] = useState(false);
@@ -462,7 +470,7 @@ const SpacePanel: React.FC = () => {
                             )}
                         </Droppable>
 
-                        <ThreadsActivityCentre displayButtonLabel={!isPanelCollapsed} />
+                        <ThreadsNavButton displayLabel={!isPanelCollapsed} isActive={isThreadsPageActive} />
 
                         <QuickSettingsButton isPanelCollapsed={isPanelCollapsed} />
                     </nav>

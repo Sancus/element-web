@@ -834,6 +834,9 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
             case Action.ViewHomePage:
                 this.viewHome(payload.justRegistered);
                 break;
+            case Action.ViewThreadsPage:
+                this.viewThreads();
+                break;
             case Action.Share:
                 this.viewShare(payload.format, payload.msg);
                 break;
@@ -1114,6 +1117,17 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
         });
         this.setPage(PageType.HomePage);
         this.notifyNewScreen("home");
+    }
+
+    private viewThreads(): void {
+        // Deliberately does not touch `mx_last_room_id`: that key is shared with the
+        // upstream Element client, which has no threads screen to restore.
+        this.setStateForNewView({
+            view: Views.LOGGED_IN,
+            currentRoomId: null,
+        });
+        this.setPage(PageType.ThreadsView);
+        this.notifyNewScreen("threads");
     }
 
     private viewUser(userId: string, subAction: string): void {
@@ -1896,6 +1910,10 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
         } else if (screen === "home") {
             dis.dispatch({
                 action: Action.ViewHomePage,
+            });
+        } else if (screen === "threads") {
+            dis.dispatch({
+                action: Action.ViewThreadsPage,
             });
         } else if (screen === "directory") {
             dis.fire(Action.ViewRoomDirectory);

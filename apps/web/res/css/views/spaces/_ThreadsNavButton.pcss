@@ -1,21 +1,16 @@
 /*
- * Copyright 2024 New Vector Ltd.
- * Copyright 2024 The Matrix.org Foundation C.I.C.
+ * Copyright 2026 New Vector Ltd.
  *
  * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
  * Please see LICENSE files in the repository root for full details.
  */
 
-.mx_ThreadsActivityCentre_container {
-    display: flex;
-}
-
-.mx_ThreadsActivityCentreButton {
+.mx_ThreadsNavButton {
     /* !important override compound */
     border-radius: 8px !important;
     margin: 18px auto auto auto;
 
-    &.expanded {
+    &.mx_ThreadsNavButton_expanded {
         /**
          * override compound default background color when hovered
          * should disappear when the space panel will be migrated to compound
@@ -42,7 +37,7 @@
             }
         }
 
-        & .mx_ThreadsActivityCentreButton_Icon {
+        & .mx_ThreadsNavButton_icon {
             /* align with settings label */
             margin-right: 14px;
             /* required to set the icon width when into a flex container */
@@ -50,53 +45,35 @@
             flex-shrink: 0;
         }
 
-        & .mx_ThreadsActivityCentreButton_Text {
+        & .mx_ThreadsNavButton_label {
             /* !important override compound  */
             color: $secondary-content !important;
         }
     }
 
-    &:not(.expanded) {
+    &:not(.mx_ThreadsNavButton_expanded) {
         &:hover,
-        &:hover .mx_ThreadsActivityCentreButton_Icon {
+        &:hover .mx_ThreadsNavButton_icon {
             /* !important override compound */
             background-color: $quaternary-content !important;
             fill: $primary-content;
         }
     }
 
-    & .mx_ThreadsActivityCentreButton_Icon {
+    & .mx_ThreadsNavButton_icon {
         fill: $secondary-content;
     }
-}
 
-.mx_ThreadsActivityCentre_rows {
-    overflow-y: scroll;
-    /* Let some space at the top and the bottom of the pop-up */
-    max-height: calc(100vh - 200px);
+    /* Selected state, mirroring how an active space is marked in the panel. */
+    &.mx_ThreadsNavButton_active {
+        background-color: $panel-actions !important;
 
-    .mx_ThreadsActivityCentreRow {
-        height: 48px;
-
-        /* Make the label of the MenuItem stay on one line and truncate with ellipsis if needed */
-        & > span {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            /* Arbitrary size, keep the TAC as the wanted width */
-            width: 202px;
+        & .mx_ThreadsNavButton_icon {
+            fill: $primary-content;
         }
 
-        /* Hide the notification badge on hover — compound's `nav-hint ~ *` rule would normally
-         * do this, but the app-web CSS layer overrides compound-web regardless of specificity. */
-        &:hover .mx_NotificationBadge {
-            display: none;
+        & .mx_ThreadsNavButton_label {
+            color: $primary-content !important;
         }
     }
-}
-
-.mx_ThreadsActivityCentre_emptyCaption {
-    padding-left: 16px;
-    padding-right: 16px;
-    font-size: 13px;
 }

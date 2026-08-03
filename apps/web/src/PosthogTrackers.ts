@@ -77,6 +77,10 @@ export default class PosthogTrackers {
     private trackPage(durationMs?: number): void {
         const screenName =
             this.view === Views.LOGGED_IN ? loggedInPageTypeMap[this.pageType!] : notLoggedInMap[this.view];
+        // Page types with no entry in the map (module-provided pages, and the threads page,
+        // which has no name in the shared analytics schema) would otherwise report an
+        // undefined $current_url.
+        if (!screenName) return;
         PosthogAnalytics.instance.trackEvent<ScreenEvent>({
             eventName: "$pageview",
             $current_url: screenName,

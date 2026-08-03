@@ -1,0 +1,185 @@
+/*
+ * Copyright 2026 New Vector Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+.mx_ThreadsView {
+    display: flex;
+    flex-direction: column;
+    /* Fills the centre panel, which is itself a flex child of the app layout. */
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    background-color: $background;
+}
+
+.mx_ThreadsView_header {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    padding: var(--cpd-space-4x) var(--cpd-space-6x);
+    border-bottom: 1px solid $separator;
+    flex-shrink: 0;
+}
+
+.mx_ThreadsView_heading {
+    margin: 0;
+    flex-grow: 1;
+    color: $primary-content;
+}
+
+.mx_ThreadsView_filterButton {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-1x);
+    padding: var(--cpd-space-1x) var(--cpd-space-2x);
+    border-radius: var(--cpd-space-2x);
+    color: $secondary-content;
+    font: var(--cpd-font-body-sm-medium);
+    white-space: nowrap;
+
+    &:hover {
+        background-color: $quinary-content;
+    }
+
+    svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+    }
+}
+
+.mx_ThreadsView_filterOption {
+    /* Leaves room for the check icon so labels stay aligned whether or not one is shown. */
+    display: grid;
+    grid-template-columns: 16px 1fr;
+    gap: var(--cpd-space-2x);
+    align-items: center;
+
+    svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    span {
+        grid-column: 2;
+    }
+}
+
+.mx_ThreadsView_scroller {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: var(--cpd-space-4x) var(--cpd-space-6x) var(--cpd-space-8x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-6x);
+}
+
+.mx_ThreadsView_spinner {
+    display: flex;
+    justify-content: center;
+    padding: var(--cpd-space-6x) 0;
+}
+
+/* --- Individual thread cards --- */
+
+.mx_ThreadCard {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-2x);
+    /* Keeps long threads readable rather than stretching across a wide window. */
+    max-width: 900px;
+    width: 100%;
+}
+
+.mx_ThreadCard_roomHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    min-width: 0;
+}
+
+.mx_ThreadCard_roomButton {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    min-width: 0;
+    padding: var(--cpd-space-1x) var(--cpd-space-2x);
+    margin-inline-start: calc(-1 * var(--cpd-space-2x));
+    border-radius: var(--cpd-space-2x);
+    color: $primary-content;
+    font: var(--cpd-font-body-md-semibold);
+
+    &:hover {
+        background-color: $quinary-content;
+    }
+}
+
+.mx_ThreadCard_roomName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mx_ThreadCard_participants {
+    color: $secondary-content;
+    font: var(--cpd-font-body-sm-regular);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mx_ThreadCard_body {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid $separator;
+    border-radius: var(--cpd-space-3x);
+    background-color: $system;
+    padding: var(--cpd-space-3x) 0;
+    overflow: hidden;
+}
+
+.mx_ThreadCard_expanded .mx_ThreadCard_body {
+    border-color: $accent;
+}
+
+.mx_ThreadCard_showMore,
+.mx_ThreadCard_collapse,
+.mx_ThreadCard_loadEarlier {
+    align-self: flex-start;
+    margin: var(--cpd-space-1x) var(--cpd-space-4x);
+    color: $accent;
+    font: var(--cpd-font-body-sm-medium);
+
+    &:hover {
+        text-decoration: underline;
+    }
+
+    &:disabled {
+        color: $secondary-content;
+        text-decoration: none;
+    }
+}
+
+.mx_ThreadCard_replyPrompt {
+    margin: var(--cpd-space-2x) var(--cpd-space-4x) 0;
+    padding: var(--cpd-space-2x) var(--cpd-space-3x);
+    border: 1px solid $separator;
+    border-radius: var(--cpd-space-2x);
+    color: $secondary-content;
+    font: var(--cpd-font-body-sm-regular);
+    text-align: start;
+
+    &:hover {
+        border-color: $accent;
+        color: $primary-content;
+    }
+}
+
+/* The composer is designed to sit at the bottom of a panel, so soften the seam where it
+ * meets the bottom of a card. */
+.mx_ThreadCard .mx_MessageComposer {
+    padding: 0 var(--cpd-space-3x);
+}
