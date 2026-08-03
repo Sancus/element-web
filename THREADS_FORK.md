@@ -65,9 +65,24 @@ whole-account rescan on a much longer 5 s throttle. Rebuilding the entire feed o
 meant a `determineUnreadState` call per thread per room twice a second, which is real
 main-thread cost on a large account.
 
+**Backfill cannot be driven by scrolling alone.** A feed that does not overflow its container
+never fires a scroll event, so if the first rooms yield few or no threads there is nothing to
+scroll and nothing to trigger the next batch. The result is the worst possible outcome on the
+account this fork exists for: "No threads yet" while 98% of rooms have never been looked at.
+`ThreadsView` therefore also backfills from an effect whenever the content is too short to
+scroll, and only shows an empty state once every room has actually been searched.
+
 **Cards render `EventTile`s directly.** `TimelinePanel` owns a `ScrollPanel` plus its own SDK
 listeners and pagination; one per card would be ruinous, and nesting scroll containers breaks
 the single-scroll feel. The page is one scroll surface, as Slack's is.
+
+**Cards must filter the thread timeline themselves.** The SDK puts reactions and edits into a
+thread's timeline alongside real replies, and `TimelinePanel` filters them out before building
+tiles. A card that skips that step renders "This event could not be displayed" wherever someone
+reacted — routinely, since people react to the newest message, which is exactly what a collapsed
+card previews. `getReplies()` applies the same `haveRendererForEvent` + `shouldHideEvent` pair,
+and the participant summary reads the filtered list so a reaction-only sender is not credited
+with taking part.
 
 **Each card owns its own reply and edit state.** This is subtle and easy to regress.
 `EventTile`'s reply and edit controls identify their target with nothing but
@@ -158,6 +173,21 @@ problem for module-provided pages.
   seamless scrollback `TimelinePanel` gives in the thread panel.
 - A backfill request that fails is retried once and then skipped, so a room that errors twice
   contributes no threads until the page is reopened.
+- **The nav badge and the feed do not agree.** The badge comes from `useUnreadThreadRooms`, which
+  counts any room with an unread thread regardless of whether the user takes part in it, while the
+  feed only shows threads the user participated in or was mentioned in. So the badge can point at a
+  thread the page will not list under any filter. Making them agree means running the feed's
+  per-thread selection from the space panel, which is mounted always and everywhere — the cost the
+  per-room caching exists to avoid. Left inconsistent deliberately.
+- **The feed still re-sorts while being read.** Ordering is frozen while a card is expanded, so a
+  composer cannot be pulled out from under the cursor, but a reply arriving elsewhere still
+  reshuffles collapsed cards under a reader who is scrolled into the middle of the feed. Slack
+  defers this behind a "new activity" affordance; that is the better model and is not implemented.
+- **`getBoundingClientRect()` cannot be spread to position a `ContextMenu`.** A real `DOMRect`
+  exposes its properties as prototype accessors, so `{...rect}` is an empty object and the menu
+  renders unpositioned; use the `aboveLeftOf`/`aboveRightOf` helpers. jsdom returns a plain object
+  that spreads fine, so this class of bug never surfaces in unit tests — the coordinate assertion
+  in `ThreadsViewFilterMenu-test.tsx` exists because of that blind spot.
 
 ## Before changing
 

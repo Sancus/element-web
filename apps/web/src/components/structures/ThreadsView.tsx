@@ -39,7 +39,7 @@ export function ThreadsView(): JSX.Element {
     const [renderCount, setRenderCount] = useState(RENDER_BATCH);
     const [expandedThreadId, setExpandedThreadId] = useState<string | null>(null);
 
-    const { entries, backfilling, hasMore, loadMore } = useThreadsFeed(filter);
+    const { entries, backfilling, hasMore, loadMore, initialised } = useThreadsFeed(filter);
 
     // Changing filter re-windows the feed from the top.
     useEffect(() => {
@@ -63,6 +63,9 @@ export function ThreadsView(): JSX.Element {
 
     const visible = useMemo(() => ordered.slice(0, renderCount), [ordered, renderCount]);
     const canRenderMore = renderCount < ordered.length;
+    const isEmpty = visible.length === 0;
+    /** Whether anything could still arrive: the first scan, or rooms left to search. */
+    const searching = !initialised || backfilling || hasMore;
 
     const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -79,6 +82,19 @@ export function ThreadsView(): JSX.Element {
             loadMore();
         }
     }, [canRenderMore, hasMore, loadMore]);
+
+    // Scrolling cannot be the only thing that drives backfill: a feed that does not overflow its
+    // container never fires a scroll event, so a short or empty result from the first rooms would
+    // strand the user with nothing to scroll and most of the account never searched. Whenever the
+    // content is too short to scroll, keep searching. Each pass advances the room cursor, so this
+    // terminates once the viewport fills or the rooms run out.
+    useEffect(() => {
+        if (backfilling || canRenderMore || !hasMore) return;
+        const el = scrollRef.current;
+        // Treated as underflowing until measurable, so a pass still runs before first layout.
+        if (el && el.scrollHeight > el.clientHeight + SCROLL_THRESHOLD_PX) return;
+        loadMore();
+    }, [backfilling, canRenderMore, hasMore, loadMore, visible.length]);
 
     const onToggleExpanded = useCallback((threadId: string) => {
         setExpandedThreadId((current) => (current === threadId ? null : threadId));
@@ -136,7 +152,17 @@ export function ThreadsView(): JSX.Element {
                 }}
                 tabIndex={0}
             >
-                {visible.length === 0 && !backfilling && emptyState}
+                {/* "No threads" is only true once every room has been searched. Before that the
+                    feed is still filling, and claiming otherwise tells a user with hundreds of
+                    threads in older rooms that they have none. */}
+                {isEmpty && !searching && emptyState}
+
+                {isEmpty && searching && (
+                    <div className="mx_ThreadsView_spinner">
+                        <Spinner />
+                        <span className="mx_ThreadsView_searching">{_t("threads_view|searching")}</span>
+                    </div>
+                )}
 
                 {visible.map((entry) => (
                     <ThreadCard
@@ -148,15 +174,16 @@ export function ThreadsView(): JSX.Element {
                     />
                 ))}
 
-                {backfilling && (
+                {!isEmpty && backfilling && (
                     <div className="mx_ThreadsView_spinner">
                         <Spinner />
                     </div>
                 )}
 
-                {/* Scrolling drives backfill, but a feed too short to scroll would otherwise
-                    never ask for more, so offer it explicitly too. */}
-                {!backfilling && !canRenderMore && hasMore && (
+                {/* Backfill continues on its own while the feed is short and on scroll once it is
+                    long, so this is only a manual fallback for a full viewport the user has not
+                    scrolled to the end of. */}
+                {!isEmpty && !backfilling && !canRenderMore && hasMore && (
                     <button type="button" className="mx_ThreadsView_loadMore" onClick={loadMore}>
                         {_t("threads_view|load_more")}
                     </button>

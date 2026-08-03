@@ -712,6 +712,9 @@ export const SETTINGS: Settings = {
     },
     "Notifications.tac_only_notifications": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
+        // Name kept despite the Threads Activity Centre being replaced by the threads page in this
+        // fork: it means the same thing on both, and the stored key is read by upstream Element if
+        // the user switches back. Only the label was reworded.
         displayName: _td("settings|tac_only_notifications"),
         default: true,
         controller: new AnalyticsController("WebSettingsNotificationsTACOnlyNotificationsToggle"),
