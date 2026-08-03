@@ -1,0 +1,92 @@
+diff --git a/dist/components/Tooltip/Tooltip.cjs b/dist/components/Tooltip/Tooltip.cjs
+index 2a94492d6b2ace9b3c6453993a921783b87deb66..9931886589a420584ee7e66be7a8fd5b63828d7d 100644
+--- a/dist/components/Tooltip/Tooltip.cjs
++++ b/dist/components/Tooltip/Tooltip.cjs
+@@ -11,6 +11,21 @@ let _floating_ui_react = require("@floating-ui/react");
+ //#region src/components/Tooltip/Tooltip.tsx
+ var hasLabel = (props) => "label" in props && !!props.label;
+ /**
++* Hides a closed label tooltip while leaving it in the accessibility tree.
++*
++* Inline rather than a class because, unlike the open tooltip, this element renders inside the
++* consumer's layout instead of a portal. A class only hides it once the stylesheet has applied,
++* and until then the label renders as visible body text next to its anchor.
++*/
++var closedLabelStyle = {
++	position: "absolute",
++	inlineSize: "1px",
++	blockSize: "1px",
++	overflow: "hidden",
++	clipPath: "inset(50%)",
++	whiteSpace: "nowrap"
++};
++/**
+ * A tooltip component
+ */
+ function Tooltip({ children, isTriggerInteractive = true, nonInteractiveTriggerTabIndex = 0, ...props }) {
+@@ -51,14 +66,17 @@ function Caption() {
+ */
+ function TooltipContent({ children }) {
+ 	const { context: floatingContext, open, arrowRef, purpose, ...rest } = require_TooltipContext.useTooltipContext();
+-	if (!open && purpose !== "label") return null;
++	if (!open) return purpose === "label" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
++		style: closedLabelStyle,
++		children
++	}) : null;
+ 	const escaped = floatingContext.middlewareData?.hide?.escaped ?? false;
+ 	return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_floating_ui_react.FloatingPortal, { children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+ 		ref: rest.refs.setFloating,
+ 		style: rest.floatingStyles,
+ 		...rest.tooltipProps,
+ 		...rest.getFloatingProps(),
+-		className: (0, classnames.default)(require_Tooltip_module.default.tooltip, { [require_Tooltip_module.default.invisible]: purpose === "label" && !open || escaped }),
++		className: (0, classnames.default)(require_Tooltip_module.default.tooltip, { [require_Tooltip_module.default.invisible]: escaped }),
+ 		children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_floating_ui_react.FloatingArrow, {
+ 			ref: arrowRef,
+ 			context: floatingContext,
+diff --git a/dist/components/Tooltip/Tooltip.js b/dist/components/Tooltip/Tooltip.js
+index c06634842361e4c1d112a2685e8dbf16b509febe..25b4c46222994d9ff1910b12d85fcf483549b2ed 100644
+--- a/dist/components/Tooltip/Tooltip.js
++++ b/dist/components/Tooltip/Tooltip.js
+@@ -8,6 +8,21 @@ import { FloatingArrow, FloatingPortal, useMergeRefs } from "@floating-ui/react"
+ //#region src/components/Tooltip/Tooltip.tsx
+ var hasLabel = (props) => "label" in props && !!props.label;
+ /**
++* Hides a closed label tooltip while leaving it in the accessibility tree.
++*
++* Inline rather than a class because, unlike the open tooltip, this element renders inside the
++* consumer's layout instead of a portal. A class only hides it once the stylesheet has applied,
++* and until then the label renders as visible body text next to its anchor.
++*/
++var closedLabelStyle = {
++	position: "absolute",
++	inlineSize: "1px",
++	blockSize: "1px",
++	overflow: "hidden",
++	clipPath: "inset(50%)",
++	whiteSpace: "nowrap"
++};
++/**
+ * A tooltip component
+ */
+ function Tooltip({ children, isTriggerInteractive = true, nonInteractiveTriggerTabIndex = 0, ...props }) {
+@@ -48,14 +63,17 @@ function Caption() {
+ */
+ function TooltipContent({ children }) {
+ 	const { context: floatingContext, open, arrowRef, purpose, ...rest } = useTooltipContext();
+-	if (!open && purpose !== "label") return null;
++	if (!open) return purpose === "label" ? /* @__PURE__ */ jsx("span", {
++		style: closedLabelStyle,
++		children
++	}) : null;
+ 	const escaped = floatingContext.middlewareData?.hide?.escaped ?? false;
+ 	return /* @__PURE__ */ jsx(FloatingPortal, { children: /* @__PURE__ */ jsxs("div", {
+ 		ref: rest.refs.setFloating,
+ 		style: rest.floatingStyles,
+ 		...rest.tooltipProps,
+ 		...rest.getFloatingProps(),
+-		className: classNames(Tooltip_module_default.tooltip, { [Tooltip_module_default.invisible]: purpose === "label" && !open || escaped }),
++		className: classNames(Tooltip_module_default.tooltip, { [Tooltip_module_default.invisible]: escaped }),
+ 		children: [/* @__PURE__ */ jsx(FloatingArrow, {
+ 			ref: arrowRef,
+ 			context: floatingContext,

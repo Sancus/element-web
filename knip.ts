@@ -13,7 +13,9 @@ process.env.GITHUB_ACTIONS = "1";
 export default {
     workspaces: {
         "packages/shared-components": {
-            entry: ["src/index.ts!", "scripts/**"],
+            // knip's Storybook plugin only knows about .storybook, so the perf Storybook's own
+            // config has to be declared as entry points or it reads as dead code.
+            entry: ["src/index.ts!", "scripts/**", ".storybook-perf/{main,preview}.{ts,tsx}"],
             project: [
                 "**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
                 "!scripts/**!",

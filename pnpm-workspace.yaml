@@ -86,6 +86,11 @@ allowBuilds:
     workerd: true
 
 patchedDependencies:
+    # Room list scroll fix: a closed label tooltip no longer renders a floating element, so
+    # Floating-UI stops running an autoUpdate loop per row. Carried as a patch rather than a git
+    # pin because building the fork from source drops declaration files the published package has.
+    # Source: https://github.com/Sancus/compound-web/tree/tooltip-perf
+    "@vector-im/compound-web@9.9.0": patches/@vector-im__compound-web@9.9.0.patch
     # Workaround for missing types export
     "@vector-im/matrix-wysiwyg": patches/@vector-im__matrix-wysiwyg.patch
     # Workaround for lack of React 19 support
@@ -123,12 +128,6 @@ allowedDeprecatedVersions:
     react-beautiful-dnd: "13"
 
 overrides:
-    # Fork of 9.9.0 carrying the room list scroll fix: a closed label tooltip no longer renders a
-    # floating element, so Floating-UI stops running an autoUpdate loop per row.
-    # https://github.com/Sancus/compound-web/tree/tooltip-perf
-    # Pinned to a commit so builds are reproducible. Catalogs reject non-semver specifiers, which
-    # is why this lives here rather than next to the other Compound entries.
-    "@vector-im/compound-web": "github:Sancus/compound-web#7b355b4c4517466da78f01e7866ff87c01d432e6"
     pretty-format@30>react-is: 19.2.8
     "@types/react": "catalog:"
     "@types/react-dom": "catalog:"
