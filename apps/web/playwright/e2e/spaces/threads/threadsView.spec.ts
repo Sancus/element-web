@@ -93,14 +93,18 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await util.expandThreadCard("Msg1");
 
         const card = util.getThreadCard("Msg1");
-        await card.getByRole("textbox", { name: "Send a message…" }).fill("My reply");
-        await card.getByRole("textbox", { name: "Send a message…" }).press("Enter");
+        await util.getCardComposer(card).fill("My reply");
+        await util.getCardComposer(card).press("Enter");
 
         await expect(card).toContainText("My reply");
 
-        // The reply landed in the thread rather than the main timeline.
+        // The reply belongs to the thread, not the room's main timeline. Asserting that the
+        // timeline simply does not mention it would be unfalsifiable: the thread summary hanging
+        // off the root previews the newest reply, and it sits inside the message list. So check
+        // both halves — the summary previews it, and no message in the timeline itself renders it.
         await util.goTo(room1);
-        await expect(page.locator(".mx_RoomView_MessageList")).not.toContainText("My reply");
+        await expect(page.locator(".mx_ThreadSummary")).toContainText("My reply");
+        await expect(page.locator(".mx_RoomView_MessageList .mx_MTextBody", { hasText: "My reply" })).toHaveCount(0);
     });
 
     test("should expand only one thread at a time", async ({ room1, room2, util, msg, user }) => {
@@ -112,7 +116,10 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await util.expandThreadCard("Msg2");
 
         await expect(util.getThreadCard("Msg2").getByRole("button", { name: "Collapse thread" })).toBeVisible();
-        await expect(util.getThreadCard("Msg3").getByRole("button", { name: "Collapse thread" })).not.toBeVisible();
+        // Msg3 is asserted still present as well as collapsed: a missing card would satisfy the
+        // absence of its collapse button just as well, and the test would then be lying.
+        await expect(util.getThreadCard("Msg3")).toBeVisible();
+        await expect(util.getThreadCard("Msg3").getByRole("button", { name: "Collapse thread" })).toHaveCount(0);
     });
 
     test("should clear the thread's unread state once read", async ({ room1, util, msg, page, user }) => {
@@ -148,7 +155,7 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
 
         const card = util.getThreadCard("Msg1");
         await expect(card.getByRole("button", { name: "Collapse thread" })).toBeVisible();
-        await expect(card.getByRole("textbox", { name: "Send a message…" })).toBeVisible();
+        await expect(util.getCardComposer(card)).toBeVisible();
         // Still gone once collapsed, since it is genuinely read by then.
         await card.getByRole("button", { name: "Collapse thread" }).click();
         await expect(util.getThreadCard("Msg1")).not.toBeVisible();
