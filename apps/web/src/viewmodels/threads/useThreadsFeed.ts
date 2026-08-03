@@ -6,7 +6,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ClientEvent, MatrixEventEvent, type Room, RoomEvent, Thread } from "matrix-js-sdk/src/matrix";
+import {
+    ClientEvent,
+    type MatrixEvent,
+    MatrixEventEvent,
+    type Room,
+    RoomEvent,
+    Thread,
+} from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 import { throttle } from "lodash";
 
@@ -17,12 +24,19 @@ import {
     collectRoomEntries,
     filterEntries,
     getFeedRooms,
+    isFeedRoom,
     sortEntries,
     type ThreadFeedEntry,
     type ThreadsFeedFilter,
 } from "./threadsFeed";
 
+/** How quickly a change in one room is reflected in the feed. */
 const MIN_UPDATE_INTERVAL_MS = 500;
+/**
+ * How often every room may be re-scanned. Much longer than the per-room interval because this
+ * pass is O(rooms + threads) and only exists to notice rooms being joined, left, or hidden.
+ */
+const FULL_RESCAN_INTERVAL_MS = 5000;
 
 /** Rooms whose threads are fetched in the first backfill pass. */
 const INITIAL_BACKFILL_ROOMS = 20;
@@ -48,6 +62,11 @@ export interface ThreadsFeedState {
  * Matrix has no cross-room threads endpoint, so this aggregates client-side in two stages:
  * an immediate pass over threads already in memory from sync, then a progressive
  * room-by-room backfill driven by scrolling.
+ *
+ * Entries are cached per room and recomputed only for rooms that have actually changed.
+ * Rebuilding the whole feed on every sync would mean an unread-state computation for every
+ * thread in every room several times a second, which on a large account is enough main-thread
+ * work to be felt.
  */
 export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
     const client = useMatrixClientContext();
@@ -56,42 +75,104 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
     const [allEntries, setAllEntries] = useState<ThreadFeedEntry[]>([]);
     const [backfilledCount, setBackfilledCount] = useState(0);
     const [backfilling, setBackfilling] = useState(false);
+    const [pendingRetries, setPendingRetries] = useState(0);
 
-    // Rooms are ordered once per mount so that backfill progress stays stable while the
+    // Rooms are ordered once per room list so that backfill progress stays stable while the
     // user scrolls, rather than being reshuffled by incoming activity.
     const feedRooms = useMemo(
         () => orderRoomsForBackfill(getFeedRooms(client, msc3946ProcessDynamicPredecessor)),
         [client, msc3946ProcessDynamicPredecessor],
     );
 
-    const recompute = useCallback(() => {
-        const userId = client.getUserId();
-        if (!userId) return;
-        const collected = getFeedRooms(client, msc3946ProcessDynamicPredecessor).flatMap((room) =>
-            collectRoomEntries(room, userId),
-        );
-        setAllEntries(sortEntries(collected));
-    }, [client, msc3946ProcessDynamicPredecessor]);
+    const entriesByRoom = useRef(new Map<string, ThreadFeedEntry[]>());
+    const dirtyRooms = useRef(new Set<string>());
 
-    // Trailing-only, matching the upstream threads activity centre: a burst of sync traffic
-    // coalesces into a single pass instead of rescanning once per event.
-    const scheduleRecompute = useMemo(
-        () => throttle(recompute, MIN_UPDATE_INTERVAL_MS, { leading: false, trailing: true }),
-        [recompute],
+    const publish = useCallback(() => {
+        setAllEntries(sortEntries([...entriesByRoom.current.values()].flat()));
+    }, []);
+
+    /** Rebuilds the cached entries for the given rooms, forgetting rooms with none. */
+    const scanRooms = useCallback(
+        (rooms: Room[]) => {
+            const userId = client.getUserId();
+            if (!userId) return;
+            for (const room of rooms) {
+                const entries = collectRoomEntries(room, userId);
+                if (entries.length > 0) entriesByRoom.current.set(room.roomId, entries);
+                else entriesByRoom.current.delete(room.roomId);
+            }
+        },
+        [client],
+    );
+
+    const rescanAll = useCallback(() => {
+        // Rebuilt from scratch rather than merged, so rooms that have been left or hidden drop out.
+        entriesByRoom.current = new Map();
+        dirtyRooms.current.clear();
+        scanRooms(getFeedRooms(client, msc3946ProcessDynamicPredecessor));
+        publish();
+    }, [client, msc3946ProcessDynamicPredecessor, scanRooms, publish]);
+
+    const rescanDirty = useCallback(() => {
+        if (dirtyRooms.current.size === 0) return;
+
+        const rooms: Room[] = [];
+        for (const roomId of dirtyRooms.current) {
+            const room = client.getRoom(roomId);
+            if (room && isFeedRoom(room)) rooms.push(room);
+            else entriesByRoom.current.delete(roomId);
+        }
+        dirtyRooms.current.clear();
+
+        scanRooms(rooms);
+        publish();
+    }, [client, scanRooms, publish]);
+
+    // Trailing-only: a burst of sync traffic coalesces into a single pass at the end rather than
+    // rescanning on the first event of the burst and again on the last.
+    const scheduleDirtyRescan = useMemo(
+        () =>
+            throttle(rescanDirty, MIN_UPDATE_INTERVAL_MS, {
+                leading: false,
+                trailing: true,
+            }),
+        [rescanDirty],
+    );
+    const scheduleFullRescan = useMemo(
+        () =>
+            throttle(rescanAll, FULL_RESCAN_INTERVAL_MS, {
+                leading: false,
+                trailing: true,
+            }),
+        [rescanAll],
     );
 
     useEffect(() => {
-        recompute();
-        return () => scheduleRecompute.cancel();
-    }, [recompute, scheduleRecompute]);
+        rescanAll();
+        return () => {
+            scheduleDirtyRescan.cancel();
+            scheduleFullRescan.cancel();
+        };
+    }, [rescanAll, scheduleDirtyRescan, scheduleFullRescan]);
 
-    // Only events the client re-emits are useful here. `ThreadEvent.*` is emitted on Room
-    // and never re-emitted to the client, but thread replies also surface as
-    // `RoomEvent.Timeline`, which is re-emitted, so this still reacts to new replies.
-    useEventEmitter(client, ClientEvent.Sync, scheduleRecompute);
-    useEventEmitter(client, MatrixEventEvent.Decrypted, scheduleRecompute);
-    useEventEmitter(client, RoomEvent.Timeline, scheduleRecompute);
-    useEventEmitter(client, RoomEvent.Receipt, scheduleRecompute);
+    const markDirty = useCallback(
+        (roomId?: string | null) => {
+            if (!roomId) return;
+            dirtyRooms.current.add(roomId);
+            scheduleDirtyRescan();
+        },
+        [scheduleDirtyRescan],
+    );
+
+    // Only events the client re-emits are useful here. `ThreadEvent.*` is emitted on Room and
+    // never re-emitted to the client, but thread replies also surface as `RoomEvent.Timeline`,
+    // which is re-emitted, so this still reacts to new replies.
+    useEventEmitter(client, RoomEvent.Timeline, (_event: MatrixEvent, room?: Room) => markDirty(room?.roomId));
+    useEventEmitter(client, RoomEvent.Receipt, (_event: MatrixEvent, room?: Room) => markDirty(room?.roomId));
+    useEventEmitter(client, MatrixEventEvent.Decrypted, (event: MatrixEvent) => markDirty(event.getRoomId()));
+    // Sync names no room, and is the only signal for the room list itself changing, so it drives
+    // the whole-account pass instead of a per-room one.
+    useEventEmitter(client, ClientEvent.Sync, scheduleFullRescan);
 
     // Without the server-side threads list, fetching a room's threads means creating a
     // persistent server-side filter and requesting its entire history. Doing that for every
@@ -102,6 +183,13 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
     const inFlight = useRef(false);
     const cursor = useRef(0);
     const cancelled = useRef(false);
+    /** Rooms whose fetch failed, retried once before the pass moves on. */
+    const retryRooms = useRef<Room[]>([]);
+    const retried = useRef(new Set<string>());
+    /** Bumped when the room list is replaced, to disown a pass started against the old one. */
+    const generation = useRef(0);
+    const started = useRef(false);
+
     useEffect(() => {
         cancelled.current = false;
         return () => {
@@ -109,12 +197,31 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
         };
     }, []);
 
+    // Declared before the effect that starts the first pass, so a new room list resets progress
+    // before that pass is restarted against it.
+    useEffect(() => {
+        generation.current += 1;
+        cursor.current = 0;
+        retryRooms.current = [];
+        retried.current.clear();
+        started.current = false;
+        setBackfilledCount(0);
+        setPendingRetries(0);
+    }, [feedRooms]);
+
     const runBackfill = useCallback(
         async (limit: number): Promise<void> => {
             if (!canBackfill || inFlight.current) return;
-            const batch = feedRooms.slice(cursor.current, cursor.current + limit);
+
+            // Previously failed rooms are retried alongside the next unsearched ones, so a
+            // transient error does not drop a room's threads from the feed permanently.
+            const retries = retryRooms.current;
+            retryRooms.current = [];
+            const fresh = feedRooms.slice(cursor.current, cursor.current + limit);
+            const batch = [...retries, ...fresh];
             if (batch.length === 0) return;
 
+            const startedGeneration = generation.current;
             inFlight.current = true;
             setBackfilling(true);
             try {
@@ -125,27 +232,34 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
                         // passes over the same room cost nothing.
                         await room.createThreadsTimelineSets();
                         await room.fetchRoomThreads();
+                        markDirty(room.roomId);
                     } catch (e) {
                         logger.warn(`useThreadsFeed: failed to fetch threads for ${room.roomId}`, e);
+                        if (!retried.current.has(room.roomId)) {
+                            retried.current.add(room.roomId);
+                            retryRooms.current.push(room);
+                        }
                     }
                 });
             } finally {
-                cursor.current += batch.length;
                 inFlight.current = false;
+                // A pass against a superseded room list must not advance the new cursor, but still
+                // has to stop the spinner it started.
+                if (generation.current === startedGeneration) cursor.current += fresh.length;
                 if (!cancelled.current) {
                     setBackfilledCount(cursor.current);
+                    setPendingRetries(retryRooms.current.length);
                     setBackfilling(false);
-                    recompute();
+                    rescanDirty();
                 }
             }
         },
-        [canBackfill, feedRooms, recompute],
+        [canBackfill, feedRooms, markDirty, rescanDirty],
     );
 
-    const startedRef = useRef(false);
     useEffect(() => {
-        if (startedRef.current) return;
-        startedRef.current = true;
+        if (started.current) return;
+        started.current = true;
         void runBackfill(INITIAL_BACKFILL_ROOMS);
     }, [runBackfill]);
 
@@ -154,7 +268,7 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
     }, [runBackfill]);
 
     const entries = useMemo(() => filterEntries(allEntries, filter), [allEntries, filter]);
-    const hasMore = canBackfill && backfilledCount < feedRooms.length;
+    const hasMore = canBackfill && (backfilledCount < feedRooms.length || pendingRetries > 0);
 
     return {
         entries,

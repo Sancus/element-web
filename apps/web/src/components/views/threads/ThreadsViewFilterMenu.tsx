@@ -50,7 +50,11 @@ export function ThreadsViewFilterMenu({ filter, onChange }: ThreadsViewFilterMen
                 ref={button}
                 isExpanded={menuDisplayed}
                 onClick={openMenu}
-                label={_t("threads_view|filter_label")}
+                // Becomes the button's aria-label, and so has to carry the selected value: it
+                // overrides the visible text rather than adding to it.
+                label={_t("threads_view|filter_label", {
+                    filter: labelFor(filter),
+                })}
             >
                 {labelFor(filter)}
                 <ChevronDownIcon />

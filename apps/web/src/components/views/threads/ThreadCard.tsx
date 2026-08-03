@@ -5,7 +5,7 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import React, { type JSX, useCallback, useEffect, useState } from "react";
+import React, { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import {
     Direction,
     type IEventRelation,
@@ -22,10 +22,14 @@ import { _t } from "../../../languageHandler";
 import SettingsStore from "../../../settings/SettingsStore";
 import { Action } from "../../../dispatcher/actions";
 import defaultDispatcher from "../../../dispatcher/dispatcher";
+import { type ActionPayload } from "../../../dispatcher/payloads";
 import { type ViewRoomPayload } from "../../../dispatcher/payloads/ViewRoomPayload";
+import { useDispatcher } from "../../../hooks/useDispatcher";
 import { useMatrixClientContext } from "../../../contexts/MatrixClientContext";
 import { ScopedRoomContextProvider } from "../../../contexts/ScopedRoomContext";
 import { RoomUploadContextProvider } from "../../../viewmodels/room/RoomUploadViewModel";
+import { TimelineRenderingType } from "../../../contexts/RoomContext";
+import EditorStateTransfer from "../../../utils/EditorStateTransfer";
 import { Layout } from "../../../settings/enums/Layout";
 import { formatList } from "../../../utils/FormattingUtils";
 import { NotificationLevel } from "../../../stores/notifications/NotificationLevel";
@@ -86,6 +90,12 @@ function getBundledReplyPreview(thread: Thread): MatrixEvent[] {
     return [latest];
 }
 
+/** The card's edit state, but only for the one event actually being edited. */
+function editStateFor(editState: EditorStateTransfer | undefined, event: MatrixEvent): EditorStateTransfer | undefined {
+    if (!editState) return undefined;
+    return editState.getEvent().getId() === event.getId() ? editState : undefined;
+}
+
 /** Display names of everyone who has spoken in the thread, in first-spoke order. */
 function getParticipantNames(thread: Thread): string[] {
     const seen = new Set<string>();
@@ -112,6 +122,8 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
     const roomContext = useThreadCardRoomContext(room, thread);
     const permalinkCreator = usePermalinkCreator(room);
     const [paginating, setPaginating] = useState(false);
+    const [replyToEvent, setReplyToEvent] = useState<MatrixEvent | undefined>();
+    const [editState, setEditState] = useState<EditorStateTransfer | undefined>();
 
     const replies = getReplies(thread);
     // Until a thread's timeline has been paginated the only reply available is the one the
@@ -151,6 +163,67 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
         onToggleExpanded(thread.id);
     }, [onToggleExpanded, thread.id]);
 
+    /** Whether an action's target event belongs to this card's thread rather than another card's. */
+    const ownsEvent = useCallback(
+        (event?: MatrixEvent | null): boolean => Boolean(event && event.getThread()?.id === thread.id),
+        [thread.id],
+    );
+
+    // `EventTile`'s reply and edit controls identify their target with nothing but
+    // `TimelineRenderingType.Thread`, because upstream never has more than one thread timeline
+    // on screen: `RoomViewStore` skips thread replies entirely and `ThreadView` claims them all.
+    // The feed has a timeline per card, so each card claims only the actions whose event belongs
+    // to its own thread. Without this, a reply started on one card would be captured by whichever
+    // card happened to have a composer open, and be sent to the wrong thread.
+    useDispatcher(defaultDispatcher, (payload: ActionPayload) => {
+        switch (payload.action) {
+            case "reply_to_event":
+                if (payload.context !== TimelineRenderingType.Thread || !ownsEvent(payload.event)) return;
+                setReplyToEvent(payload.event);
+                // The composer only exists once a card is expanded, so replying has to open it.
+                if (!expanded) onToggleExpanded(thread.id);
+                break;
+
+            case Action.EditEvent:
+                if (payload.timelineRenderingType !== TimelineRenderingType.Thread) return;
+                // A null event cancels editing. Only the card actually editing has state to clear.
+                if (!payload.event) {
+                    setEditState(undefined);
+                    return;
+                }
+                if (!ownsEvent(payload.event)) return;
+                setEditState(new EditorStateTransfer(payload.event));
+                if (!expanded) onToggleExpanded(thread.id);
+                break;
+
+            default:
+                break;
+        }
+    });
+
+    // Collapsing discards the card's in-progress reply and edit, so reopening it later does not
+    // resume a quote or an edit the user has visibly walked away from.
+    useEffect(() => {
+        if (expanded) return;
+        setReplyToEvent(undefined);
+        setEditState(undefined);
+    }, [expanded]);
+
+    // "Show N more replies" counts every reply the thread has, but a thread seeded from sync may
+    // only have its bundled latest reply loaded. Fetch one page on expand so the promised replies
+    // actually appear, instead of the count being replaced by a "load earlier" button. Bounded to
+    // a single page per expansion; the button covers the rest.
+    const autoPaginated = useRef(false);
+    useEffect(() => {
+        if (!expanded) {
+            autoPaginated.current = false;
+            return;
+        }
+        if (autoPaginated.current || !canPaginate || replies.length >= thread.length) return;
+        autoPaginated.current = true;
+        void onLoadEarlier();
+    }, [expanded, canPaginate, replies.length, thread.length, onLoadEarlier]);
+
     // Reading a thread in the feed clears its unread state, as opening it in the thread panel
     // would. `sendReadReceipt` derives the thread from the event's thread root, so this sends
     // a threaded receipt and never marks the whole room as read.
@@ -181,99 +254,127 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
 
     const participantNames = getParticipantNames(thread);
 
-    return (
-        <ScopedRoomContextProvider {...roomContext}>
-            <RoomUploadContextProvider threadRelation={threadRelation}>
-                <section
-                    className={classNames("mx_ThreadCard", { mx_ThreadCard_expanded: expanded })}
-                    aria-label={_t("threads_view|card_label", { roomName: room.name })}
-                >
-                    <header className="mx_ThreadCard_roomHeader">
+    const body = (
+        <div className="mx_ThreadCard_body">
+            {/* `EventTile` renders as an `li` in thread mode, so the events form a real
+                        list, with the controls that sit between them as list items too. */}
+            <ol className="mx_ThreadCard_events">
+                {thread.rootEvent && (
+                    <EventTile
+                        mxEvent={thread.rootEvent}
+                        permalinkCreator={permalinkCreator}
+                        layout={Layout.Group}
+                        showReadReceipts={false}
+                        showReactions={true}
+                        alwaysShowTimestamps={true}
+                        getRelationsForEvent={getRelationsForEvent}
+                        isTwelveHour={roomContext.showTwelveHourTimestamps}
+                        showUrlPreview={false}
+                        editState={editStateFor(editState, thread.rootEvent)}
+                    />
+                )}
+
+                {expanded && canPaginate && (
+                    <li className="mx_ThreadCard_control">
                         <button
                             type="button"
-                            className="mx_ThreadCard_roomButton"
-                            onClick={onViewInRoom}
-                            title={_t("threads_view|view_in_room")}
+                            className="mx_ThreadCard_loadEarlier"
+                            disabled={paginating}
+                            onClick={() => void onLoadEarlier()}
                         >
-                            <RoomAvatar room={room} size="20px" />
-                            <span className="mx_ThreadCard_roomName">{room.name}</span>
+                            {paginating ? _t("threads_view|loading") : _t("threads_view|load_earlier")}
                         </button>
-                        {entry.level > NotificationLevel.None && (
-                            <StatelessNotificationBadge level={entry.level} count={0} symbol={null} forceDot={true} />
-                        )}
-                        {participantNames.length > 0 && (
-                            <span className="mx_ThreadCard_participants">{formatList(participantNames, 2, true)}</span>
-                        )}
-                    </header>
+                    </li>
+                )}
 
-                    <div className="mx_ThreadCard_body">
-                        {thread.rootEvent && (
-                            <EventTile
-                                mxEvent={thread.rootEvent}
-                                permalinkCreator={permalinkCreator}
-                                layout={Layout.Group}
-                                showReadReceipts={false}
-                                showReactions={true}
-                                alwaysShowTimestamps={true}
-                                getRelationsForEvent={getRelationsForEvent}
-                                isTwelveHour={roomContext.showTwelveHourTimestamps}
-                                showUrlPreview={false}
-                            />
-                        )}
+                {!expanded && hiddenReplyCount > 0 && (
+                    <li className="mx_ThreadCard_control">
+                        <button type="button" className="mx_ThreadCard_showMore" onClick={onExpand}>
+                            {_t("threads_view|show_more_replies", {
+                                count: hiddenReplyCount,
+                            })}
+                        </button>
+                    </li>
+                )}
 
-                        {expanded && canPaginate && (
-                            <button
-                                type="button"
-                                className="mx_ThreadCard_loadEarlier"
-                                disabled={paginating}
-                                onClick={() => void onLoadEarlier()}
-                            >
-                                {paginating ? _t("threads_view|loading") : _t("threads_view|load_earlier")}
-                            </button>
-                        )}
+                {visibleReplies.map((event) => (
+                    <EventTile
+                        key={event.getId()}
+                        mxEvent={event}
+                        permalinkCreator={permalinkCreator}
+                        layout={Layout.Group}
+                        showReadReceipts={false}
+                        showReactions={true}
+                        alwaysShowTimestamps={true}
+                        getRelationsForEvent={getRelationsForEvent}
+                        isTwelveHour={roomContext.showTwelveHourTimestamps}
+                        showUrlPreview={false}
+                        editState={editStateFor(editState, event)}
+                    />
+                ))}
+            </ol>
 
-                        {!expanded && hiddenReplyCount > 0 && (
-                            <button type="button" className="mx_ThreadCard_showMore" onClick={onExpand}>
-                                {_t("threads_view|show_more_replies", { count: hiddenReplyCount })}
-                            </button>
-                        )}
+            {expanded ? (
+                <>
+                    <MessageComposer
+                        room={room}
+                        resizeNotifier={resizeNotifier}
+                        relation={threadRelation}
+                        replyToEvent={replyToEvent}
+                        permalinkCreator={permalinkCreator}
+                        compact={true}
+                    />
+                    <button type="button" className="mx_ThreadCard_collapse" onClick={onExpand}>
+                        {_t("threads_view|collapse")}
+                    </button>
+                </>
+            ) : (
+                <button type="button" className="mx_ThreadCard_replyPrompt" onClick={onExpand}>
+                    {_t("threads_view|reply_prompt")}
+                </button>
+            )}
+        </div>
+    );
 
-                        {visibleReplies.map((event) => (
-                            <EventTile
-                                key={event.getId()}
-                                mxEvent={event}
-                                permalinkCreator={permalinkCreator}
-                                layout={Layout.Group}
-                                showReadReceipts={false}
-                                showReactions={true}
-                                alwaysShowTimestamps={true}
-                                getRelationsForEvent={getRelationsForEvent}
-                                isTwelveHour={roomContext.showTwelveHourTimestamps}
-                                showUrlPreview={false}
-                            />
-                        ))}
+    return (
+        <ScopedRoomContextProvider {...roomContext} replyToEvent={replyToEvent}>
+            <section
+                className={classNames("mx_ThreadCard", {
+                    mx_ThreadCard_expanded: expanded,
+                })}
+                aria-label={_t("threads_view|card_label", {
+                    roomName: room.name,
+                })}
+            >
+                <header className="mx_ThreadCard_roomHeader">
+                    <button
+                        type="button"
+                        className="mx_ThreadCard_roomButton"
+                        onClick={onViewInRoom}
+                        title={_t("threads_view|view_in_room")}
+                    >
+                        <RoomAvatar room={room} size="20px" />
+                        <span className="mx_ThreadCard_roomName">{room.name}</span>
+                    </button>
+                    {entry.level > NotificationLevel.None && (
+                        <StatelessNotificationBadge level={entry.level} count={0} symbol={null} forceDot={true} />
+                    )}
+                    {participantNames.length > 0 && (
+                        <span className="mx_ThreadCard_participants">{formatList(participantNames, 2, true)}</span>
+                    )}
+                </header>
 
-                        {expanded ? (
-                            <>
-                                <MessageComposer
-                                    room={room}
-                                    resizeNotifier={resizeNotifier}
-                                    relation={threadRelation}
-                                    permalinkCreator={permalinkCreator}
-                                    compact={true}
-                                />
-                                <button type="button" className="mx_ThreadCard_collapse" onClick={onExpand}>
-                                    {_t("threads_view|collapse")}
-                                </button>
-                            </>
-                        ) : (
-                            <button type="button" className="mx_ThreadCard_replyPrompt" onClick={onExpand}>
-                                {_t("threads_view|reply_prompt")}
-                            </button>
-                        )}
-                    </div>
-                </section>
-            </RoomUploadContextProvider>
+                {/* Only the expanded card gets an upload context, because it is the only card with
+                    a composer or an editor. A `RoomUploadContextProvider` claims any
+                    `ComposerFileInsert` aimed at a thread, and the module API's payload names no
+                    room or thread, so one provider per card would upload a module's files into
+                    every thread in the feed at once. */}
+                {expanded ? (
+                    <RoomUploadContextProvider threadRelation={threadRelation}>{body}</RoomUploadContextProvider>
+                ) : (
+                    body
+                )}
+            </section>
         </ScopedRoomContextProvider>
     );
 }
