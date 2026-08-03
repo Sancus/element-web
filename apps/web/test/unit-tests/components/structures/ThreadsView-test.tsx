@@ -266,6 +266,65 @@ describe("ThreadsView", () => {
         expect(renderedOrder()).toEqual(["a", "b", "c"]);
     });
 
+    describe("the new activity affordance", () => {
+        const newActivity = (): HTMLElement | null =>
+            screen.queryByRole("button", { name: "New activity — back to top" });
+
+        it("is not offered while the feed is live", () => {
+            const { rerender } = renderView();
+            activityReorders(rerender, ["c", "a", "b"]);
+
+            // At the top the reorder is simply shown, so there is nothing to announce.
+            expect(newActivity()).toBeNull();
+        });
+
+        it("is offered once the held order no longer matches the sort", () => {
+            const { rerender, scroller } = renderView();
+            scrollTo(scroller, 4000);
+            expect(newActivity()).toBeNull();
+
+            activityReorders(rerender, ["c", "a", "b"]);
+
+            expect(newActivity()).not.toBeNull();
+        });
+
+        it("is not offered when the feed is held but has not gone stale", () => {
+            const { rerender, scroller } = renderView();
+            scrollTo(scroller, 4000);
+
+            // Activity that does not change the order leaves nothing out of date.
+            activityReorders(rerender, ["a", "b", "c"]);
+
+            expect(newActivity()).toBeNull();
+        });
+
+        it("returns to the top and releases the order when taken", () => {
+            const { rerender, scroller } = renderView();
+            scrollTo(scroller, 4000);
+            activityReorders(rerender, ["c", "a", "b"]);
+
+            act(() => {
+                fireEvent.click(newActivity()!);
+            });
+
+            expect(geometry.scrollTop).toBe(0);
+            expect(renderedOrder()).toEqual(["c", "a", "b"]);
+            expect(newActivity()).toBeNull();
+        });
+
+        it("stays silent while a card is expanded, which it cannot release", () => {
+            const { rerender, scroller } = renderView();
+            expandCard("a");
+            scrollTo(scroller, 4000);
+
+            activityReorders(rerender, ["c", "a", "b"]);
+
+            // Taking it would have to collapse the card, discarding the reply being written, so it
+            // is not offered at all.
+            expect(newActivity()).toBeNull();
+        });
+    });
+
     it("does not reorder around an expanded card when the filter changes", () => {
         // The Unread list is sorted by activity like any other, so it arrives in a different order
         // from the one on screen.

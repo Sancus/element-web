@@ -83,6 +83,21 @@ export function ThreadsView(): JSX.Element {
         paintedOrder.current = ordered.map((entry) => entry.threadId);
     }, [ordered]);
 
+    // Whether the feed on screen is no longer the order the sort would give, and saying so is
+    // useful: only while the hold is down to scroll position, because returning to the top is then
+    // all it takes to release it. A hold caused by an expanded card is deliberately silent — the
+    // only way to release that is to collapse the card, which throws away the reply being written.
+    const stale = useMemo(() => {
+        if (atTop || expandedThreadId !== null) return false;
+        if (ordered.length !== entries.length) return true;
+        return ordered.some((entry, index) => entry.threadId !== entries[index].threadId);
+    }, [atTop, expandedThreadId, ordered, entries]);
+
+    const onShowNewActivity = useCallback(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = 0;
+        setAtTop(true);
+    }, []);
+
     const visible = useMemo(() => ordered.slice(0, renderCount), [ordered, renderCount]);
     const canRenderMore = renderCount < ordered.length;
     const isEmpty = visible.length === 0;
@@ -174,6 +189,16 @@ export function ThreadsView(): JSX.Element {
                 }}
                 tabIndex={0}
             >
+                {/* Announced as a status so that the feed having gone stale is not something only
+                    a sighted user scrolled to the top can discover. */}
+                <div className="mx_ThreadsView_newActivity" role="status">
+                    {stale && (
+                        <button type="button" className="mx_ThreadsView_newActivityButton" onClick={onShowNewActivity}>
+                            {_t("threads_view|new_activity")}
+                        </button>
+                    )}
+                </div>
+
                 {/* "No threads" is only true once every room has been searched. Before that the
                     feed is still filling, and claiming otherwise tells a user with hundreds of
                     threads in older rooms that they have none. */}

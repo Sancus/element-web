@@ -224,14 +224,18 @@ problem for module-provided pages.
   thread the page will not list under any filter. Making them agree means running the feed's
   per-thread selection from the space panel, which is mounted always and everywhere — the cost the
   per-room caching exists to avoid. Left inconsistent deliberately.
-- **Re-sorting is deferred to the top of the feed, without an affordance for it.** Sorting by
-  latest activity means a reply anywhere in the account can move cards, so the order is held
-  (`applyHeldOrder()`) whenever a card is expanded or the feed is scrolled off the top, and
-  released when it returns to the top with nothing expanded. Threads that arrive while it is held
-  wait at the end rather than pushing the list down mid-read. What is missing is Slack's "new
-  activity" affordance: nothing tells the user the order is stale or that new threads are waiting,
-  so a reader parked part-way down sees them appear at the bottom and only sees them sort properly
-  once they scroll back up. This is the largest known UX gap in the page.
+- **Re-sorting is deferred, and the deferral is only advertised when scrolling caused it.** Sorting
+  by latest activity means a reply anywhere in the account can move cards, so the order is held
+  (`applyHeldOrder()`) whenever a card is expanded or the feed is scrolled off the top, and released
+  when it returns to the top with nothing expanded. Threads arriving while it is held go to the end
+  of the order — which, since the feed only renders a window of that order, usually means below what
+  is rendered rather than visibly "at the bottom"; they are rendered once the window reaches them.
+  A "New activity" control appears when the held order no longer matches the sort, and returns to
+  the top. It is deliberately not shown when the hold is due to an expanded card, because the only
+  way to release that is to collapse the card, which discards the reply being written — so a user
+  composing a reply still gets no signal that the feed is out of date. Unlike Slack, there is no
+  count of what is waiting: the held order alone cannot distinguish a genuinely new thread from an
+  existing one that merely moved.
 - **`getBoundingClientRect()` cannot be spread to position a `ContextMenu`.** A real `DOMRect`
   exposes its properties as prototype accessors, so `{...rect}` is an empty object and the menu
   renders unpositioned; use the `aboveLeftOf`/`aboveRightOf` helpers. jsdom returns a plain object
