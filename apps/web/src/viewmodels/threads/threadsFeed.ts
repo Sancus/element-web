@@ -5,7 +5,7 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import { type MatrixClient, type Room, type Thread } from "matrix-js-sdk/src/matrix";
+import { type MatrixClient, type MatrixEvent, type Room, type Thread } from "matrix-js-sdk/src/matrix";
 
 import { NotificationLevel } from "../../stores/notifications/NotificationLevel";
 import { determineUnreadState } from "../../RoomNotifs";
@@ -32,6 +32,8 @@ export interface ThreadFeedEntry {
     level: NotificationLevel;
     /** Whether the current user has sent anything in this thread. */
     participated: boolean;
+    /** Whether any loaded event in the thread mentions the current user. */
+    mentioned: boolean;
 }
 
 /**
@@ -46,6 +48,29 @@ export function hasParticipated(thread: Thread, userId: string): boolean {
     if (thread.hasCurrentUserParticipated) return true;
     if (thread.rootEvent?.getSender() === userId) return true;
     return thread.timeline.some((event) => event.getSender() === userId);
+}
+
+/**
+ * Whether any loaded event in the thread mentions the user.
+ *
+ * Read from intentional mentions (`m.mentions.user_ids`) rather than from the thread's unread
+ * state, because a highlight count clears as soon as the mention is read — including from
+ * another client — which would drop the thread out of a feed that is supposed to show threads
+ * the user was mentioned in.
+ *
+ * Only direct user mentions count: an `@room` ping is a room-wide announcement rather than a
+ * reason to follow one thread. Mentions in events that have not been loaded, and legacy
+ * mentions from clients predating `m.mentions`, are not detected; those threads still reach
+ * the feed while they carry an unread highlight.
+ */
+export function wasMentioned(thread: Thread, userId: string): boolean {
+    if (thread.rootEvent && mentionsUser(thread.rootEvent, userId)) return true;
+    return thread.timeline.some((event) => mentionsUser(event, userId));
+}
+
+function mentionsUser(event: MatrixEvent, userId: string): boolean {
+    const userIds = event.getContent()["m.mentions"]?.user_ids;
+    return Array.isArray(userIds) && userIds.includes(userId);
 }
 
 /** Timestamp used to order the feed. Includes not-yet-sent local echoes. */
@@ -67,12 +92,13 @@ export function collectRoomEntries(room: Room, userId: string): ThreadFeedEntry[
         if (!thread.rootEvent) continue;
 
         const participated = hasParticipated(thread, userId);
+        const mentioned = wasMentioned(thread, userId);
         const { level } = determineUnreadState(room, thread.id, false);
 
         // Slack surfaces threads you follow. The closest Matrix equivalents are threads you
-        // have taken part in, plus threads where something needs your attention even though
-        // you have not replied yet.
-        if (!participated && level < NotificationLevel.Highlight) continue;
+        // have taken part in or been mentioned in. The unread-highlight case is kept as a
+        // safety net for mentions this client cannot see in the loaded events.
+        if (!participated && !mentioned && level < NotificationLevel.Highlight) continue;
 
         entries.push({
             threadId: thread.id,
@@ -81,15 +107,21 @@ export function collectRoomEntries(room: Room, userId: string): ThreadFeedEntry[
             latestTs: getLatestTs(thread),
             level,
             participated,
+            mentioned,
         });
     }
 
     return entries;
 }
 
+/** Whether a room's threads belong in the feed, in the same terms the room list uses. */
+export function isFeedRoom(room: Room): boolean {
+    return isRoomVisible(room);
+}
+
 /** Rooms eligible for the feed, in the same visibility terms the room list uses. */
 export function getFeedRooms(client: MatrixClient, msc3946ProcessDynamicPredecessor: boolean): Room[] {
-    return client.getVisibleRooms(msc3946ProcessDynamicPredecessor).filter((room) => isRoomVisible(room));
+    return client.getVisibleRooms(msc3946ProcessDynamicPredecessor).filter(isFeedRoom);
 }
 
 /** Most recent thread activity first. */
@@ -104,7 +136,9 @@ export function filterEntries(entries: ThreadFeedEntry[], filter: ThreadsFeedFil
         case ThreadsFeedFilter.Unread:
             return entries.filter((entry) => entry.level >= NotificationLevel.Activity);
         case ThreadsFeedFilter.Mentions:
-            return entries.filter((entry) => entry.level >= NotificationLevel.Highlight);
+            // Deliberately not a notification-level test: `NotificationLevel.Unsent` outranks
+            // `Highlight`, so a thread with a failed local echo would otherwise show up here.
+            return entries.filter((entry) => entry.mentioned);
         default: {
             const exhaustive: never = filter;
             throw new Error(`Unhandled threads feed filter: ${exhaustive}`);

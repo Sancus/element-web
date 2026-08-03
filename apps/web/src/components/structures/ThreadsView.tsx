@@ -46,8 +46,23 @@ export function ThreadsView(): JSX.Element {
         setRenderCount(RENDER_BATCH);
     }, [filter]);
 
-    const visible = useMemo(() => entries.slice(0, renderCount), [entries, renderCount]);
-    const canRenderMore = renderCount < entries.length;
+    // The feed is sorted by latest activity, so a new reply anywhere would otherwise be able to
+    // move an expanded card — and the composer the user is typing in — out from under the cursor.
+    // While a card is expanded the previous order is held, and newly arrived threads wait at the
+    // end until it collapses.
+    const order = useRef<string[]>([]);
+    const ordered = useMemo(() => {
+        if (expandedThreadId === null) {
+            order.current = entries.map((entry) => entry.threadId);
+            return entries;
+        }
+        const rank = new Map(order.current.map((threadId, index) => [threadId, index]));
+        const rankOf = (threadId: string): number => rank.get(threadId) ?? Number.MAX_SAFE_INTEGER;
+        return [...entries].sort((a, b) => rankOf(a.threadId) - rankOf(b.threadId));
+    }, [entries, expandedThreadId]);
+
+    const visible = useMemo(() => ordered.slice(0, renderCount), [ordered, renderCount]);
+    const canRenderMore = renderCount < ordered.length;
 
     const scrollRef = useRef<HTMLDivElement | null>(null);
 

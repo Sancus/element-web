@@ -3287,7 +3287,7 @@
         "empty_unread_description": "You've read every thread you're following.",
         "empty_unread_title": "You're all caught up",
         "filter_all": "All threads",
-        "filter_label": "Show:",
+        "filter_label": "Show: %(filter)s",
         "filter_mentions": "Mentions",
         "filter_unread": "Unread",
         "load_earlier": "Load earlier replies",

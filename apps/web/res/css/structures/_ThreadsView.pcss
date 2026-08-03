@@ -159,6 +159,19 @@
     border-color: $accent;
 }
 
+/* EventTile renders as an li in thread mode, so the events are a real list. */
+.mx_ThreadCard_events {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* A control sitting between events in that list, carrying none of its appearance. */
+.mx_ThreadCard_control {
+    display: flex;
+    list-style: none;
+}
+
 .mx_ThreadCard_showMore,
 .mx_ThreadCard_collapse,
 .mx_ThreadCard_loadEarlier {

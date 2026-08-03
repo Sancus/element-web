@@ -48,9 +48,44 @@ with thousands of filters that every other client also syncs. Against such a ser
 therefore stays limited to threads already in memory rather than backfilling. Do not remove
 this gate.
 
+**"Mentioned in" is read from the events, not from unread state.** Slack shows threads you
+_follow_, and you follow a thread by replying to it or being @mentioned in it. Matrix has no
+follow concept, and this fork may not persist one (see compatibility below), so membership is
+derived: `hasParticipated()` plus `wasMentioned()`, the latter reading
+`m.mentions.user_ids` off the thread's loaded events. Deriving it from the thread's notification
+level instead — the obvious shortcut — is wrong twice over: a mention read in any client clears
+the highlight and would silently drop the thread out of the feed, and `NotificationLevel.Unsent`
+outranks `Highlight`, so a thread with a failed local echo would appear under "Mentions".
+
+**Only rooms that changed are rescanned.** Entries are cached per room in `useThreadsFeed`.
+Room-scoped events (`RoomEvent.Timeline`, `RoomEvent.Receipt`, `MatrixEventEvent.Decrypted`)
+mark just their own room dirty and rescan it on a trailing 500 ms throttle. `ClientEvent.Sync`
+names no room and is the only signal for the room list itself changing, so it drives a
+whole-account rescan on a much longer 5 s throttle. Rebuilding the entire feed on every sync
+meant a `determineUnreadState` call per thread per room twice a second, which is real
+main-thread cost on a large account.
+
 **Cards render `EventTile`s directly.** `TimelinePanel` owns a `ScrollPanel` plus its own SDK
 listeners and pagination; one per card would be ruinous, and nesting scroll containers breaks
 the single-scroll feel. The page is one scroll surface, as Slack's is.
+
+**Each card owns its own reply and edit state.** This is subtle and easy to regress.
+`EventTile`'s reply and edit controls identify their target with nothing but
+`TimelineRenderingType.Thread`: upstream never has more than one thread timeline on screen, so
+`RoomViewStore` skips thread replies outright and `ThreadView` claims them all. A feed has one
+timeline per card, so `ThreadCard` claims only the actions whose `payload.event.getThread()?.id`
+matches its own thread, and expands itself to show the composer. Without that check, a reply
+started on one card is captured by whichever card has a composer open and sent to the wrong
+thread.
+
+**Only the expanded card gets a `RoomUploadContextProvider`.** A provider accepts any
+`Action.ComposerFileInsert` whose `timelineRenderingType` is `Thread`, and the module API's
+`openFileUploadConfirmation(files, { view: "thread" })` payload names no room or thread. One
+provider per card therefore meant a module's files being uploaded into every thread in the feed
+at once — a cross-room disclosure. One provider on the expanded card matches upstream's
+one-thread-composer assumption exactly. It wraps the whole card body rather than just the
+composer, because with `feature_wysiwyg_composer` enabled editing a message renders
+`EditWysiwygComposer`, which needs the same context.
 
 **The feed is not virtualized.** Cards vary widely in height, change height when expanded,
 and contain focusable controls including a composer — all of which fight both height
@@ -91,11 +126,11 @@ problem for module-provided pages.
 ## Implementation locations
 
 - `apps/web/src/viewmodels/threads/threadsFeed.ts` — pure selection, ordering, and filtering.
-  Which threads qualify lives here: participated in, or highlighted in.
-- `apps/web/src/viewmodels/threads/useThreadsFeed.ts` — listeners, throttling, and the
-  backfill queue. Note it subscribes only to events the client actually re-emits;
-  `ThreadEvent.*` is emitted on `Room` and never reaches the client, so new replies are picked
-  up via `RoomEvent.Timeline`.
+  Which threads qualify lives here: participated in, or mentioned in.
+- `apps/web/src/viewmodels/threads/useThreadsFeed.ts` — listeners, per-room caching and
+  throttling, and the backfill queue. Note it subscribes only to events the client actually
+  re-emits; `ThreadEvent.*` is emitted on `Room` and never reaches the client, so new replies
+  are picked up via `RoomEvent.Timeline`.
 - `apps/web/src/components/structures/ThreadsView.tsx` — page shell and render window.
 - `apps/web/src/components/views/threads/ThreadCard.tsx` — a card, collapsed and expanded,
   plus `makeThreadRelation()`.
@@ -107,16 +142,22 @@ problem for module-provided pages.
 
 ## Known trade-offs
 
-- The feed recomputes over all known threads on a trailing 500 ms throttle whenever sync,
-  timeline, receipt, or decryption events arrive, and calls `determineUnreadState` per thread.
-  This runs only while the page is mounted, and is the same shape of work upstream's TAC does
-  continuously, but it grows with the number of backfilled threads.
+- **The render window only grows.** Scrolling far enough eventually mounts every card, and each
+  mounted card's `EventTile`s carry their own listeners. Scoping the upload provider to the
+  expanded card removed the largest per-card cost, but a session that scrolls the whole feed
+  still accumulates DOM. Virtualizing is the real fix and was rejected for the reasons above; a
+  cheaper alternative is to unmount cards well above the viewport.
+- **Mention detection only sees loaded events.** `wasMentioned()` reads `m.mentions` from a
+  thread's loaded timeline, so a mention in an unpaginated reply, or one from a client predating
+  `m.mentions`, is missed. Such threads still reach the feed while they carry an unread
+  highlight, which is why that clause is kept in `collectRoomEntries()`.
 - Expanding a card paginates that thread's timeline through
-  `client.paginateEventTimeline()`. Reading a very long thread from the feed is therefore
-  several round trips behind a "Load earlier replies" button, rather than the seamless
-  scrollback `TimelinePanel` gives in the thread panel.
-- Because the feed is ordered by most recent activity and recomputed on sync, incoming
-  activity in other threads can reorder cards underneath an expanded one.
+  `client.paginateEventTimeline()`. One page is fetched automatically on expand so the
+  "Show N more replies" count is not immediately replaced by a "Load earlier replies" button,
+  but reading a very long thread is still several round trips behind that button rather than the
+  seamless scrollback `TimelinePanel` gives in the thread panel.
+- A backfill request that fails is retried once and then skipped, so a room that errors twice
+  contributes no threads until the page is reopened.
 
 ## Before changing
 
