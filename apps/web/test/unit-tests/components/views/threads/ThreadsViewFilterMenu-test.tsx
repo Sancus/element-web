@@ -48,6 +48,17 @@ describe("ThreadsViewFilterMenu", () => {
         expect(parseInt(wrapper!.style.right, 10)).toBeGreaterThan(UIStore.instance.windowWidth / 2);
     });
 
+    it("anchors the menu's own right edge to the wrapper", () => {
+        openMenu();
+
+        // The wrapper's coordinates above are only half of the positioning: the wrapper is
+        // zero-width, and the menu inside it is absolutely positioned, so without this class the
+        // menu has no horizontal anchor and flows rightwards out of the window from a button as
+        // close to its right edge as this one. Requesting a chevron is enough to lose the class,
+        // which is why it is asserted separately from the coordinates.
+        expect(document.querySelector(".mx_ContextualMenu")).toHaveClass("mx_ContextualMenu_right");
+    });
+
     it("reports the chosen filter", () => {
         const { onChange } = openMenu();
 
