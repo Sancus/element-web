@@ -160,6 +160,31 @@ describe("ThreadCard", () => {
         expect(screen.getByTestId("composer-!a:example.org")).toHaveAttribute("data-reply-to", a.reply.getId()!);
     });
 
+    it("clears the quoted reply when the composer cancels it", async () => {
+        const a = await makeEntry("!a:example.org");
+
+        renderCards([{ entry: a.entry, expanded: true }]);
+
+        act(() => {
+            defaultDispatcher.dispatch(
+                { action: "reply_to_event", event: a.reply, context: TimelineRenderingType.Thread },
+                true,
+            );
+        });
+        expect(screen.getByTestId("composer-!a:example.org")).toHaveAttribute("data-reply-to", a.reply.getId()!);
+
+        // Escape in the composer cancels by dispatching a null event, which names no thread to
+        // match the card against.
+        act(() => {
+            defaultDispatcher.dispatch(
+                { action: "reply_to_event", event: null, context: TimelineRenderingType.Thread },
+                true,
+            );
+        });
+
+        expect(screen.getByTestId("composer-!a:example.org")).toHaveAttribute("data-reply-to", "");
+    });
+
     it("ignores reply actions from outside a thread timeline", async () => {
         const a = await makeEntry("!a:example.org");
 
