@@ -63,6 +63,11 @@ export enum Action {
     ViewHomePage = "view_home_page",
 
     /**
+     * Navigates to the cross-room threads page. No additional payload information required.
+     */
+    ViewThreadsPage = "view_threads_page",
+
+    /**
      * Forces the theme to reload. No additional payload information required.
      */
     RecheckTheme = "recheck_theme",
