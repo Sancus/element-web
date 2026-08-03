@@ -150,7 +150,7 @@ jobs:
               id: hak-cache
               uses: actions/cache@v6
               with:
-                  key: hak-seshat-v1-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/package.json', 'apps/desktop/.node-version', 'apps/desktop/hak/**', 'apps/desktop/scripts/hak/**', 'apps/desktop/dockerbuild/**') }}
+                  key: hak-seshat-v2-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/package.json', 'apps/desktop/.node-version', 'apps/desktop/hak/**', 'apps/desktop/scripts/hak/**', 'apps/desktop/dockerbuild/**') }}
                   path: apps/desktop/.hak
 
             - name: Install Rust targets
@@ -237,17 +237,25 @@ jobs:
               if: steps.hak-cache.outputs.cache-hit != 'true'
               uses: actions/cache/save@v6
               with:
-                  key: hak-seshat-v1-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/package.json', 'apps/desktop/.node-version', 'apps/desktop/hak/**', 'apps/desktop/scripts/hak/**', 'apps/desktop/dockerbuild/**') }}
+                  key: hak-seshat-v2-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/package.json', 'apps/desktop/.node-version', 'apps/desktop/hak/**', 'apps/desktop/scripts/hak/**', 'apps/desktop/dockerbuild/**') }}
                   path: apps/desktop/.hak
 
             # hak finishes by running "pnpm link" on the module it built, which adds it to the
-            # workspace root and rewrites the lockfile. electron-builder then cannot map parts of
-            # the pnpm store back to packages, and drops them from the app with only a warning:
-            # v7 shipped that way and would not start. Reinstalling puts the tree back, and the
-            # link survives it because it is in the lockfile by now.
+            # workspace root, rewrites pnpm-lock.yaml and reformats pnpm-workspace.yaml.
+            # electron-builder reads the lockfile to decide what to package, and against the
+            # rewritten one it cannot place import-in-the-middle and its siblings, so it drops
+            # them with only a warning: v7 shipped that way and would not start.
+            #
+            # Restoring the checked-in files and reinstalling puts the workspace back exactly as
+            # it was before hak ran. Losing the link costs nothing here: electron-builder takes
+            # the module from .hak/hakModules, and tsc uses the declaration in src/@types.
             - name: Restore the dependency tree
-              working-directory: apps/desktop
-              run: pnpm install --frozen-lockfile --filter element-desktop
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  git checkout -- package.json pnpm-lock.yaml pnpm-workspace.yaml
+                  rm -rf apps/desktop/node_modules
+                  pnpm install --frozen-lockfile --filter element-desktop
 
             - uses: actions/setup-python@v7
               if: runner.os == 'macOS'
