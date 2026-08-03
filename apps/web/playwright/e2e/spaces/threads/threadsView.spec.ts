@@ -83,9 +83,11 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await util.assertThreadsInFeed(["Msg1"]);
     });
 
-    test("should reply to a thread from the feed", async ({ room1, util, msg, page }) => {
+    test("should reply to a thread from the feed", async ({ room1, util, msg, page, user }) => {
         await util.goTo(room1);
-        await util.receiveMessages(room1, ["Msg1", msg.threadedOff("Msg1", "Resp1")]);
+        // Mentioned rather than participated: the feed lists threads you have taken part in or been
+        // pinged in, and being pinged then replying from the inbox is the journey this page is for.
+        await util.receiveThreadMentioningUser(room1, msg, user, "Msg1");
 
         await util.openThreadsPage();
         await util.expandThreadCard("Msg1");
@@ -113,16 +115,43 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await expect(util.getThreadCard("Msg3").getByRole("button", { name: "Collapse thread" })).not.toBeVisible();
     });
 
-    test("should clear the thread's unread state once read", async ({ room1, util, msg, page }) => {
+    test("should clear the thread's unread state once read", async ({ room1, util, msg, page, user }) => {
         await util.goTo(room1);
-        await util.receiveMessages(room1, ["Msg1", msg.threadedOff("Msg1", "Resp1")]);
+        await util.receiveThreadMentioningUser(room1, msg, user, "Msg1");
         await page.reload();
-        await util.assertNotificationIndicator();
+        await util.assertHighlightIndicator();
 
         await util.openThreadsPage();
         await util.expandThreadCard("Msg1");
 
         await util.assertNoThreadsIndicator();
+    });
+
+    test("should keep a card open under Unread while reading marks it read", async ({
+        room1,
+        util,
+        msg,
+        page,
+        user,
+    }) => {
+        await util.goTo(room1);
+        await util.receiveThreadMentioningUser(room1, msg, user, "Msg1");
+        await page.reload();
+
+        await util.openThreadsPage();
+        await util.setFilter("Unread");
+        await expect(util.getThreadCard("Msg1")).toBeVisible();
+
+        // Expanding sends a read receipt, which stops the thread matching this filter. The card
+        // being read has to survive that: otherwise it takes the composer with it as it goes.
+        await util.expandThreadCard("Msg1");
+
+        const card = util.getThreadCard("Msg1");
+        await expect(card.getByRole("button", { name: "Collapse thread" })).toBeVisible();
+        await expect(card.getByRole("textbox", { name: "Send a message…" })).toBeVisible();
+        // Still gone once collapsed, since it is genuinely read by then.
+        await card.getByRole("button", { name: "Collapse thread" }).click();
+        await expect(util.getThreadCard("Msg1")).not.toBeVisible();
     });
 
     test("should show an empty state when there are no threads", async ({ room1, util }) => {
