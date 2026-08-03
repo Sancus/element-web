@@ -283,6 +283,23 @@ describe("threadsFeed", () => {
 
             expect(entries.map((e) => e.threadId)).toEqual(["c", "a"]);
         });
+
+        it("appends arrivals one after another when each result is recorded in turn", () => {
+            // How the feed uses it: the painted order is recorded after every update, which is what
+            // stops a thread that arrived during a freeze being re-ranked by the next arrival.
+            // Holding the pre-freeze order instead would tie both arrivals for last place, and
+            // "second" — being the more recent — would sort ahead of "first".
+            let painted = ["a", "b"];
+            const update = (threadIds: string[]): void => {
+                painted = applyHeldOrder(entriesFor(threadIds), painted).map((e) => e.threadId);
+            };
+
+            update(["first", "a", "b"]);
+            expect(painted).toEqual(["a", "b", "first"]);
+
+            update(["second", "first", "a", "b"]);
+            expect(painted).toEqual(["a", "b", "first", "second"]);
+        });
     });
 
     describe("filterEntries", () => {

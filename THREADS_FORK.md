@@ -137,6 +137,23 @@ for uniform rows. Instead the feed renders a bounded window of cards and grows i
 scrolls, which keeps DOM size bounded without either problem. `react-virtuoso` is also not a
 dependency of `apps/web` today.
 
+**Growing the render window cannot be driven by scrolling alone.** `ThreadsView`'s `advance()` is
+called both from the scroll handler and from an effect, because two situations produce no scroll
+event at all: a feed shorter than its container, and a feed already scrolled to its end when a
+thread arrives. The second is reachable specifically because held order puts arrivals last, which
+can place them beyond the render window — leaving a card that cannot be reached by scrolling down,
+since there is nothing left to scroll. Calling it from an effect also keeps the at-top flag honest
+when content shrinks under the viewport, which moves the scroll offset without the user touching
+it.
+
+**The held order is recorded after painting, and while frozen as well as live.** `paintedOrder` in
+`ThreadsView` is written in an effect rather than during render: a render React discards must not
+be able to hold the feed to an order that was never shown. It is recorded while the order is held
+too, not just while it is live — otherwise every thread that arrived during a freeze would stay
+tied for last place, and each new arrival would re-rank the ones before it, which is the
+reshuffling the freeze exists to prevent. Because the recording happens on every commit, resetting
+it elsewhere (on a filter change, say) has no lasting effect and is not worth doing.
+
 ## Compatibility with the upstream client
 
 A profile used with this fork has to stay usable in stock Element and alongside other Matrix
@@ -214,7 +231,7 @@ problem for module-provided pages.
   wait at the end rather than pushing the list down mid-read. What is missing is Slack's "new
   activity" affordance: nothing tells the user the order is stale or that new threads are waiting,
   so a reader parked part-way down sees them appear at the bottom and only sees them sort properly
-  once they scroll back up.
+  once they scroll back up. This is the largest known UX gap in the page.
 - **`getBoundingClientRect()` cannot be spread to position a `ContextMenu`.** A real `DOMRect`
   exposes its properties as prototype accessors, so `{...rect}` is an empty object and the menu
   renders unpositioned; use the `aboveLeftOf`/`aboveRightOf` helpers. jsdom returns a plain object
