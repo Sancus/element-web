@@ -207,10 +207,14 @@ problem for module-provided pages.
   thread the page will not list under any filter. Making them agree means running the feed's
   per-thread selection from the space panel, which is mounted always and everywhere — the cost the
   per-room caching exists to avoid. Left inconsistent deliberately.
-- **The feed still re-sorts while being read.** Ordering is frozen while a card is expanded, so a
-  composer cannot be pulled out from under the cursor, but a reply arriving elsewhere still
-  reshuffles collapsed cards under a reader who is scrolled into the middle of the feed. Slack
-  defers this behind a "new activity" affordance; that is the better model and is not implemented.
+- **Re-sorting is deferred to the top of the feed, without an affordance for it.** Sorting by
+  latest activity means a reply anywhere in the account can move cards, so the order is held
+  (`applyHeldOrder()`) whenever a card is expanded or the feed is scrolled off the top, and
+  released when it returns to the top with nothing expanded. Threads that arrive while it is held
+  wait at the end rather than pushing the list down mid-read. What is missing is Slack's "new
+  activity" affordance: nothing tells the user the order is stale or that new threads are waiting,
+  so a reader parked part-way down sees them appear at the bottom and only sees them sort properly
+  once they scroll back up.
 - **`getBoundingClientRect()` cannot be spread to position a `ContextMenu`.** A real `DOMRect`
   exposes its properties as prototype accessors, so `{...rect}` is an empty object and the menu
   renders unpositioned; use the `aboveLeftOf`/`aboveRightOf` helpers. jsdom returns a plain object

@@ -130,6 +130,21 @@ export function sortEntries(entries: ThreadFeedEntry[]): ThreadFeedEntry[] {
 }
 
 /**
+ * Reorders entries to match a previously held order, with anything new at the end.
+ *
+ * Used to stop the feed re-sorting itself while the user is reading part-way down it or has a
+ * card expanded: a reply arriving in any room of the account changes the sort, which would
+ * otherwise move whatever they are looking at. Threads absent from `order` are new since it was
+ * taken and go last, in their own sorted order, rather than appearing mid-list where they would
+ * push the rest down.
+ */
+export function applyHeldOrder(entries: ThreadFeedEntry[], order: readonly string[]): ThreadFeedEntry[] {
+    const rank = new Map(order.map((threadId, index) => [threadId, index]));
+    const rankOf = (threadId: string): number => rank.get(threadId) ?? Number.MAX_SAFE_INTEGER;
+    return [...entries].sort((a, b) => rankOf(a.threadId) - rankOf(b.threadId));
+}
+
+/**
  * Applies a filter, always keeping `keepThreadId` whether it matches or not.
  *
  * Reading a thread is what makes it stop matching "Unread", so a card expanded under that filter
