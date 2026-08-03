@@ -5,11 +5,12 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import React, { type JSX, useCallback, useState } from "react";
+import React, { type JSX, useCallback, useEffect, useState } from "react";
 import {
     Direction,
     type IEventRelation,
     type MatrixEvent,
+    ReceiptType,
     type Relations,
     type Thread,
     THREAD_RELATION_TYPE,
@@ -18,6 +19,7 @@ import { logger } from "matrix-js-sdk/src/logger";
 import classNames from "classnames";
 
 import { _t } from "../../../languageHandler";
+import SettingsStore from "../../../settings/SettingsStore";
 import { Action } from "../../../dispatcher/actions";
 import defaultDispatcher from "../../../dispatcher/dispatcher";
 import { type ViewRoomPayload } from "../../../dispatcher/payloads/ViewRoomPayload";
@@ -74,6 +76,16 @@ function getReplies(thread: Thread): MatrixEvent[] {
     return thread.timeline.filter((event) => event.getId() !== rootId);
 }
 
+/**
+ * The single latest reply the server bundled with the thread root, used as a preview while
+ * the thread's own timeline is still empty.
+ */
+function getBundledReplyPreview(thread: Thread): MatrixEvent[] {
+    const latest = thread.replyToEvent;
+    if (!latest || latest.getId() === thread.rootEvent?.getId()) return [];
+    return [latest];
+}
+
 /** Display names of everyone who has spoken in the thread, in first-spoke order. */
 function getParticipantNames(thread: Thread): string[] {
     const seen = new Set<string>();
@@ -102,8 +114,12 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
     const [paginating, setPaginating] = useState(false);
 
     const replies = getReplies(thread);
-    const hiddenReplyCount = Math.max(thread.length - Math.min(replies.length, COLLAPSED_REPLY_COUNT), 0);
-    const visibleReplies = expanded ? replies : replies.slice(-COLLAPSED_REPLY_COUNT);
+    // Until a thread's timeline has been paginated the only reply available is the one the
+    // server bundles with the root event, so fall back to it rather than showing a card with
+    // no replies at all.
+    const previewReplies = replies.length > 0 ? replies : getBundledReplyPreview(thread);
+    const hiddenReplyCount = Math.max(thread.length - Math.min(previewReplies.length, COLLAPSED_REPLY_COUNT), 0);
+    const visibleReplies = expanded ? replies : previewReplies.slice(-COLLAPSED_REPLY_COUNT);
 
     // Recomputed every render, as `ThreadView` does, so the reply fallback always points at
     // the newest reply rather than whichever one was latest when the card first mounted.
@@ -134,6 +150,24 @@ export function ThreadCard({ entry, expanded, onToggleExpanded, resizeNotifier }
     const onExpand = useCallback(() => {
         onToggleExpanded(thread.id);
     }, [onToggleExpanded, thread.id]);
+
+    // Reading a thread in the feed clears its unread state, as opening it in the thread panel
+    // would. `sendReadReceipt` derives the thread from the event's thread root, so this sends
+    // a threaded receipt and never marks the whole room as read.
+    useEffect(() => {
+        if (!expanded || entry.level <= NotificationLevel.None) return;
+
+        const latest = thread.lastReply() ?? thread.rootEvent;
+        // A local echo has no event ID the server would accept a receipt for.
+        if (!latest || latest.status !== null || !latest.getId()) return;
+
+        const receiptType = SettingsStore.getValue("sendReadReceipts", room.roomId)
+            ? ReceiptType.Read
+            : ReceiptType.ReadPrivate;
+        client.sendReadReceipt(latest, receiptType).catch((e) => {
+            logger.warn(`ThreadCard: failed to send read receipt for thread ${thread.id}`, e);
+        });
+    }, [expanded, entry.level, thread, client, room.roomId]);
 
     const onViewInRoom = useCallback(() => {
         defaultDispatcher.dispatch<ViewRoomPayload>({
