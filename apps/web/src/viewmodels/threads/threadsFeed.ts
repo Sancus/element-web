@@ -129,16 +129,29 @@ export function sortEntries(entries: ThreadFeedEntry[]): ThreadFeedEntry[] {
     return [...entries].sort((a, b) => b.latestTs - a.latestTs);
 }
 
-export function filterEntries(entries: ThreadFeedEntry[], filter: ThreadsFeedFilter): ThreadFeedEntry[] {
+/**
+ * Applies a filter, always keeping `keepThreadId` whether it matches or not.
+ *
+ * Reading a thread is what makes it stop matching "Unread", so a card expanded under that filter
+ * would otherwise delete itself — and the composer being typed into — the moment its read receipt
+ * lands. The thread the user is looking at stays until they collapse it.
+ */
+export function filterEntries(
+    entries: ThreadFeedEntry[],
+    filter: ThreadsFeedFilter,
+    keepThreadId?: string | null,
+): ThreadFeedEntry[] {
+    const keep = (entry: ThreadFeedEntry, matches: boolean): boolean => matches || entry.threadId === keepThreadId;
+
     switch (filter) {
         case ThreadsFeedFilter.All:
             return entries;
         case ThreadsFeedFilter.Unread:
-            return entries.filter((entry) => entry.level >= NotificationLevel.Activity);
+            return entries.filter((entry) => keep(entry, entry.level >= NotificationLevel.Activity));
         case ThreadsFeedFilter.Mentions:
             // Deliberately not a notification-level test: `NotificationLevel.Unsent` outranks
             // `Highlight`, so a thread with a failed local echo would otherwise show up here.
-            return entries.filter((entry) => entry.mentioned);
+            return entries.filter((entry) => keep(entry, entry.mentioned));
         default: {
             const exhaustive: never = filter;
             throw new Error(`Unhandled threads feed filter: ${exhaustive}`);

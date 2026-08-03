@@ -13,6 +13,7 @@ import {
     type MatrixEvent,
     ReceiptType,
     type Relations,
+    type Room,
     type Thread,
     THREAD_RELATION_TYPE,
 } from "matrix-js-sdk/src/matrix";
@@ -112,6 +113,19 @@ function editStateFor(editState: EditorStateTransfer | undefined, event: MatrixE
 }
 
 /**
+ * Replies still being sent, or that failed to send.
+ *
+ * Element runs with detached pending-event ordering, so a local echo lives in the room's pending
+ * list rather than in the thread's timeline. Without this, sending from the feed clears the
+ * composer and shows nothing at all: a failed send offers no retry or cancel affordance, because
+ * the event it belongs to was never rendered. Matches how `TimelinePanel` appends them.
+ */
+function getPendingReplies(thread: Thread, room: Room): MatrixEvent[] {
+    const pending = thread.timelineSet.getPendingEvents();
+    return pending.filter((event) => room.eventShouldLiveIn(event, pending).threadId === thread.id);
+}
+
+/**
  * Display names of everyone who has spoken in the thread, in first-spoke order.
  *
  * Takes already-filtered replies so that somebody who only reacted is not listed as having
@@ -155,6 +169,9 @@ export const ThreadCard = memo(function ThreadCard({
     const [editState, setEditState] = useState<EditorStateTransfer | undefined>();
 
     const replies = getReplies(thread, client, roomContext);
+    // Kept out of `replies` so they do not disturb the hidden-reply arithmetic or the participant
+    // summary; they are appended at the end of the card, where they belong chronologically.
+    const pendingReplies = getPendingReplies(thread, room);
     // Until a thread's timeline has been paginated the only reply available is the one the
     // server bundles with the root event, so fall back to it rather than showing a card with
     // no replies at all.
@@ -246,16 +263,33 @@ export const ThreadCard = memo(function ThreadCard({
         setEditState(undefined);
     }, [expanded]);
 
-    // Clicking a composer-shaped "Reply…" button should put the caret in the composer that
-    // replaces it, as it does in Slack. `MessageComposer` does not autofocus; it only takes focus
-    // from this action, and the button that was clicked has just been unmounted, so without this
-    // focus falls back to the document body.
+    // Expanding and collapsing both unmount the control that was activated to trigger them, so
+    // without moving focus deliberately it falls back to the document body and a keyboard user is
+    // returned to the top of the page. Expanding hands focus to the composer, as clicking a
+    // composer-shaped "Reply…" button implies; collapsing hands it back to the control that
+    // replaces it, as a disclosure should.
+    const cardRef = useRef<HTMLElement | null>(null);
+    const replyPromptRef = useRef<HTMLButtonElement | null>(null);
+    const wasExpanded = useRef(expanded);
     useEffect(() => {
-        if (!expanded) return;
-        defaultDispatcher.dispatch<FocusComposerPayload>({
-            action: Action.FocusSendMessageComposer,
-            context: TimelineRenderingType.Thread,
-        });
+        const previously = wasExpanded.current;
+        wasExpanded.current = expanded;
+        if (previously === expanded) return;
+
+        // Only claim focus if this card had it, so a collapse triggered from elsewhere on the page
+        // does not drag focus across the feed.
+        const active = document.activeElement;
+        const heldFocus = active === document.body || (active !== null && cardRef.current?.contains(active) === true);
+        if (!heldFocus) return;
+
+        if (expanded) {
+            defaultDispatcher.dispatch<FocusComposerPayload>({
+                action: Action.FocusSendMessageComposer,
+                context: TimelineRenderingType.Thread,
+            });
+        } else {
+            replyPromptRef.current?.focus();
+        }
     }, [expanded]);
 
     const onKeyDown = useCallback(
@@ -288,12 +322,22 @@ export const ThreadCard = memo(function ThreadCard({
     // Reading a thread in the feed clears its unread state, as opening it in the thread panel
     // would. `sendReadReceipt` derives the thread from the event's thread root, so this sends
     // a threaded receipt and never marks the whole room as read.
+    //
+    // Keyed on the newest event rather than on the thread's notification level, so replies that
+    // arrive while the card is open are marked read too. Keying on the level cannot do that: it
+    // drops to None as soon as the first receipt lands, and a reply arriving before that leaves it
+    // unchanged, so in both cases the effect does not run again.
+    const receiptedEventId = useRef<string | null>(null);
+    const latestEventId = (thread.lastReply() ?? thread.rootEvent)?.getId();
     useEffect(() => {
-        if (!expanded || entry.level <= NotificationLevel.None) return;
+        if (!expanded) return;
 
         const latest = thread.lastReply() ?? thread.rootEvent;
         // A local echo has no event ID the server would accept a receipt for.
-        if (!latest || latest.status !== null || !latest.getId()) return;
+        if (!latest || latest.status !== null) return;
+        const eventId = latest.getId();
+        if (!eventId || receiptedEventId.current === eventId) return;
+        receiptedEventId.current = eventId;
 
         const receiptType = SettingsStore.getValue("sendReadReceipts", room.roomId)
             ? ReceiptType.Read
@@ -301,7 +345,7 @@ export const ThreadCard = memo(function ThreadCard({
         client.sendReadReceipt(latest, receiptType).catch((e) => {
             logger.warn(`ThreadCard: failed to send read receipt for thread ${thread.id}`, e);
         });
-    }, [expanded, entry.level, thread, client, room.roomId]);
+    }, [expanded, latestEventId, thread, client, room.roomId]);
 
     const onViewInRoom = useCallback(() => {
         defaultDispatcher.dispatch<ViewRoomPayload>({
@@ -319,7 +363,12 @@ export const ThreadCard = memo(function ThreadCard({
     const bodyId = useId();
 
     const body = (
-        <div className="mx_ThreadCard_body" id={bodyId}>
+        // `mx_ThreadView` carries the thread-mode `EventTile` styling, which `_EventTile.pcss`
+        // scopes to that class rather than to the rendering type the tiles are given. Without it
+        // the tiles fall back to room-timeline layout: room names reappear, and hidden events and
+        // their avatars are positioned for a full-width timeline. The panel's own layout rules are
+        // compounded onto `.mx_ThreadPanel`, so they are not picked up here.
+        <div className="mx_ThreadCard_body mx_ThreadView" id={bodyId}>
             {/* `EventTile` renders as an `li` in thread mode, so the events form a real
                 list, with the controls that sit between them as list items too. */}
             <ol className="mx_ThreadCard_events">
@@ -367,7 +416,7 @@ export const ThreadCard = memo(function ThreadCard({
                     </li>
                 )}
 
-                {visibleReplies.map((event) => (
+                {[...visibleReplies, ...pendingReplies].map((event) => (
                     <EventTile
                         key={event.getId()}
                         mxEvent={event}
@@ -398,6 +447,7 @@ export const ThreadCard = memo(function ThreadCard({
             ) : (
                 <button
                     type="button"
+                    ref={replyPromptRef}
                     className="mx_ThreadCard_replyPrompt"
                     onClick={onExpand}
                     aria-expanded={expanded}
@@ -412,6 +462,7 @@ export const ThreadCard = memo(function ThreadCard({
     return (
         <ScopedRoomContextProvider {...roomContext} replyToEvent={replyToEvent}>
             <article
+                ref={cardRef}
                 className={classNames("mx_ThreadCard", {
                     mx_ThreadCard_expanded: expanded,
                 })}

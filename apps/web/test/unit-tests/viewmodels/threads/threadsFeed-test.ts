@@ -300,5 +300,23 @@ describe("threadsFeed", () => {
             // NotificationLevel.Unsent outranks Highlight, so a level test would match it.
             expect(filterEntries(entries, ThreadsFeedFilter.Mentions).map((e) => e.threadId)).not.toContain("$unsent");
         });
+
+        it("keeps the thread being read even once it no longer matches", () => {
+            // Reading a thread is what makes it stop matching Unread, so without this the card the
+            // user is reading — and the composer in it — is removed as its read receipt lands.
+            expect(filterEntries(entries, ThreadsFeedFilter.Unread, "$none").map((e) => e.threadId)).toContain("$none");
+            expect(filterEntries(entries, ThreadsFeedFilter.Mentions, "$none").map((e) => e.threadId)).toContain(
+                "$none",
+            );
+        });
+
+        it("does not duplicate the thread being read when it still matches", () => {
+            expect(filterEntries(entries, ThreadsFeedFilter.Unread, "$activity").map((e) => e.threadId)).toEqual([
+                "$activity",
+                "$notification",
+                "$highlight",
+                "$unsent",
+            ]);
+        });
     });
 });

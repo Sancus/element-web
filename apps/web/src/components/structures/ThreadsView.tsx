@@ -39,7 +39,9 @@ export function ThreadsView(): JSX.Element {
     const [renderCount, setRenderCount] = useState(RENDER_BATCH);
     const [expandedThreadId, setExpandedThreadId] = useState<string | null>(null);
 
-    const { entries, backfilling, hasMore, loadMore, initialised } = useThreadsFeed(filter);
+    // The expanded thread is exempt from filtering: reading it is what makes it stop matching
+    // "Unread", and a card that deletes itself as it is read takes the composer with it.
+    const { entries, backfilling, hasMore, loadMore, initialised } = useThreadsFeed(filter, expandedThreadId);
 
     // Changing filter re-windows the feed from the top.
     useEffect(() => {

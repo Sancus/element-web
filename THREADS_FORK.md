@@ -84,6 +84,34 @@ card previews. `getReplies()` applies the same `haveRendererForEvent` + `shouldH
 and the participant summary reads the filtered list so a reaction-only sender is not credited
 with taking part.
 
+**Cards must also add the pending replies the timeline does not contain.** Element runs with
+detached pending-event ordering, so a local echo lives in the room's pending list, not in the
+thread timeline, and raises no `RoomEvent.Timeline`. Reading only the timeline means sending from
+the feed clears the composer and displays nothing — and a *failed* send offers no retry or cancel,
+because the event carrying those affordances was never rendered. `getPendingReplies()` appends
+them the way `TimelinePanel` does, and the feed listens for `RoomEvent.LocalEchoUpdated`.
+
+**The card body carries `mx_ThreadView`.** Thread-mode `EventTile` styling — 175 lines of it — is
+scoped in `_EventTile.pcss` to that class, not to the rendering type the tiles are given. Without
+it the tiles silently fall back to room-timeline layout, showing room names and mispositioning
+hidden events. The thread panel's own layout rules are compounded onto `.mx_ThreadPanel`, so they
+are not inherited along with it.
+
+**The thread being read is exempt from the filter.** Reading a thread is precisely what stops it
+matching "Unread", so a card expanded under that filter would otherwise delete itself, and the
+composer being typed into, the moment its read receipt landed. `filterEntries()` takes the expanded
+thread ID and always keeps it.
+
+**Backfill progress is a set of room IDs, not an index.** The room list is rebuilt whenever rooms
+are joined, left, or upgraded, and an index into the old list points somewhere unrelated in the new
+one. Tracking searched rooms by ID means the queue can be reordered or replaced freely: newly joined
+rooms get searched, departed rooms drop out, and no pass has to be disowned when the list changes.
+
+**Room visibility is not a per-room property.** `getVisibleRooms()` hides a room that has been
+upgraded, which it can only determine by examining every room's predecessors. A per-room predicate
+cannot reproduce that, so dirty rescans check the room against the set found by the last whole-account
+scan; otherwise an event in an upgraded room puts it back into the feed.
+
 **Each card owns its own reply and edit state.** This is subtle and easy to regress.
 `EventTile`'s reply and edit controls identify their target with nothing but
 `TimelineRenderingType.Thread`: upstream never has more than one thread timeline on screen, so
@@ -197,5 +225,7 @@ problem for module-provided pages.
    data event type, without revisiting the compatibility section above.
 3. Re-run `apps/web/test/unit-tests/viewmodels/threads/` and
    `apps/web/playwright/e2e/spaces/threads/` after changing selection or ordering.
+   `useThreadsFeed-test.tsx` drives the throttled rescans with fake timers; the throttle constants
+   are duplicated there, so change both together.
 4. Validate against the ~1,000-room benchmark account before widening the backfill batch
    sizes or loosening the throttle.
