@@ -48,34 +48,40 @@ export function ThreadsView(): JSX.Element {
     /** Whether the feed is scrolled to the top, where re-sorting is safe to show. */
     const [atTop, setAtTop] = useState(true);
 
-    const order = useRef<string[]>([]);
+    /** The order the feed was last painted in. */
+    const paintedOrder = useRef<string[]>([]);
     const scrollRef = useRef<HTMLDivElement | null>(null);
 
-    // Changing filter re-windows the feed from the top, and is an explicit request for a different
-    // list, so it also releases the held order below rather than ranking a new set of threads
-    // against the order of the old one.
+    // Changing filter is an explicit request for a different list, so the feed re-windows and
+    // returns to the top. The held order below is deliberately not reset: an expanded card stays
+    // exempt from the filter, and re-ranking around it is what would move its composer.
     useEffect(() => {
         setRenderCount(RENDER_BATCH);
-        order.current = [];
         setAtTop(true);
-        scrollRef.current?.scrollTo({ top: 0 });
+        if (scrollRef.current) scrollRef.current.scrollTop = 0;
     }, [filter]);
 
     // The feed is sorted by latest activity, so a reply arriving anywhere in the account can move
     // cards. That is only acceptable while the user is at the top and can see it happen: further
     // down, it moves whatever they are reading out from under them, and if a card is expanded it
-    // takes the composer they are typing in with it. In either case the previous order is held and
+    // takes the composer they are typing in with it. In either case the painted order is held and
     // newly arrived threads wait at the end, until the feed is scrolled back to the top with
     // nothing expanded — which is also when a thread jumping to the top reads as new activity
     // rather than as the page shuffling itself.
     const frozen = expandedThreadId !== null || !atTop;
-    const ordered = useMemo(() => {
-        if (!frozen) {
-            order.current = entries.map((entry) => entry.threadId);
-            return entries;
-        }
-        return applyHeldOrder(entries, order.current);
-    }, [entries, frozen]);
+    const ordered = useMemo(
+        () => (frozen ? applyHeldOrder(entries, paintedOrder.current) : entries),
+        [entries, frozen],
+    );
+
+    // Recorded after painting rather than during render, and while frozen as well as live, because
+    // what the order has to be held to is what the user is actually looking at. Recording it during
+    // render would let an abandoned render hold the feed to an order that was never shown, and not
+    // recording it while frozen would leave every thread that arrives during the freeze tied for
+    // last place, so each new arrival would reshuffle the ones before it.
+    useEffect(() => {
+        paintedOrder.current = ordered.map((entry) => entry.threadId);
+    }, [ordered]);
 
     const visible = useMemo(() => ordered.slice(0, renderCount), [ordered, renderCount]);
     const canRenderMore = renderCount < ordered.length;
@@ -83,34 +89,31 @@ export function ThreadsView(): JSX.Element {
     /** Whether anything could still arrive: the first scan, or rooms left to search. */
     const searching = !initialised || backfilling || hasMore;
 
-    const onScroll = useCallback(() => {
+    /**
+     * Brings the end of the feed within reach again: renders more of what is known, or searches
+     * more rooms once it is all on screen. Also keeps `atTop` in step with where the feed is.
+     */
+    const advance = useCallback(() => {
         const el = scrollRef.current;
-        if (!el) return;
-        setAtTop(el.scrollTop <= AT_TOP_THRESHOLD_PX);
+        // Treated as at the top and as within reach of the end until measurable, so that a first
+        // pass still runs before there is any layout to measure.
+        setAtTop(!el || el.scrollTop <= AT_TOP_THRESHOLD_PX);
+        if (el && el.scrollHeight - el.scrollTop - el.clientHeight > SCROLL_THRESHOLD_PX) return;
 
-        const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
-        if (remaining > SCROLL_THRESHOLD_PX) return;
+        if (canRenderMore) setRenderCount((count) => count + RENDER_BATCH);
+        else if (hasMore && !backfilling) loadMore();
+    }, [canRenderMore, hasMore, backfilling, loadMore]);
 
-        if (canRenderMore) {
-            setRenderCount((count) => count + RENDER_BATCH);
-        } else if (hasMore) {
-            // Everything known is on screen, so search more rooms for threads.
-            loadMore();
-        }
-    }, [canRenderMore, hasMore, loadMore]);
-
-    // Scrolling cannot be the only thing that drives backfill: a feed that does not overflow its
-    // container never fires a scroll event, so a short or empty result from the first rooms would
-    // strand the user with nothing to scroll and most of the account never searched. Whenever the
-    // content is too short to scroll, keep searching. Each pass advances the room cursor, so this
-    // terminates once the viewport fills or the rooms run out.
+    // Scrolling cannot be the only thing that drives this. A feed that does not overflow its
+    // container never fires a scroll event, so a short result from the first rooms searched would
+    // strand the user with nothing to scroll and most of the account never searched. Nor does a
+    // feed already scrolled to its end, where a thread arriving below the render window — which is
+    // where a thread arriving during a freeze goes — would otherwise stay unrendered until the user
+    // scrolled up and back down. Re-measuring here also stops `atTop` going stale when the content
+    // shrinks under the viewport, which moves the scroll offset without the user touching it.
     useEffect(() => {
-        if (backfilling || canRenderMore || !hasMore) return;
-        const el = scrollRef.current;
-        // Treated as underflowing until measurable, so a pass still runs before first layout.
-        if (el && el.scrollHeight > el.clientHeight + SCROLL_THRESHOLD_PX) return;
-        loadMore();
-    }, [backfilling, canRenderMore, hasMore, loadMore, visible.length]);
+        advance();
+    }, [advance, ordered.length, renderCount]);
 
     const onToggleExpanded = useCallback((threadId: string) => {
         setExpandedThreadId((current) => (current === threadId ? null : threadId));
@@ -162,7 +165,7 @@ export function ThreadsView(): JSX.Element {
 
             <AutoHideScrollbar
                 className="mx_ThreadsView_scroller"
-                onScroll={onScroll}
+                onScroll={advance}
                 wrappedRef={(ref) => {
                     scrollRef.current = ref;
                 }}
