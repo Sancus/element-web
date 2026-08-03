@@ -121,4 +121,17 @@ describe("<OptionMenuView />", () => {
         await user.click(screen.getByRole("menuitemcheckbox", { name: "Show message previews" }));
         expect(vm.toggleMessagePreview).toHaveBeenCalled();
     });
+
+    it("should toggle the People section", async () => {
+        const user = userEvent.setup();
+
+        const vm = new MockedViewModel({ ...defaultSnapshot, isPeopleSectionEnabled: true });
+        render(<OptionMenuView vm={vm} />);
+
+        await user.click(screen.getByRole("button", { name: "Room Options" }));
+        expect(screen.getByRole("menuitemcheckbox", { name: "Show People section" })).toBeChecked();
+
+        await user.click(screen.getByRole("menuitemcheckbox", { name: "Show People section" }));
+        expect(vm.togglePeopleSection).toHaveBeenCalled();
+    });
 });

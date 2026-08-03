@@ -71,6 +71,7 @@ describe("RoomListHeaderViewModel", () => {
             if (settingName === "feature_video_rooms") return true;
             if (settingName === "feature_element_call_video_rooms") return true;
             if (settingName === "RoomList.OrderedCustomSections") return [];
+            if (settingName === "RoomList.showDmSection") return true;
             return false;
         });
     });
@@ -440,6 +441,23 @@ describe("RoomListHeaderViewModel", () => {
 
             expect(setValueSpy).toHaveBeenCalledWith("RoomList.showMessagePreview", null, expect.anything(), false);
             expect(vm.getSnapshot().isMessagePreviewEnabled).toBe(false);
+        });
+
+        it("should toggle the People section from enabled to disabled", () => {
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((settingName: string) => {
+                if (settingName === "RoomList.preferredSorting") return SortingAlgorithm.Recency;
+                if (settingName === "RoomList.showDmSection") return true;
+                return false;
+            });
+            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockImplementation(jest.fn());
+
+            vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: sdkContext.spaceStore });
+            expect(vm.getSnapshot().isPeopleSectionEnabled).toBe(true);
+
+            vm.togglePeopleSection();
+
+            expect(setValueSpy).toHaveBeenCalledWith("RoomList.showDmSection", null, expect.anything(), false);
+            expect(vm.getSnapshot().isPeopleSectionEnabled).toBe(false);
         });
 
         it("should call nextReleaseAnnouncement and set displaySectionReleaseAnnouncement to false when closeSectionReleaseAnnouncement is called", () => {

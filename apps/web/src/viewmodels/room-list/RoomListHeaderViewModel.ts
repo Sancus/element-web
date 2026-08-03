@@ -228,6 +228,12 @@ export class RoomListHeaderViewModel
         this.snapshot.merge({ isMessagePreviewEnabled });
     };
 
+    public togglePeopleSection = (): void => {
+        const isPeopleSectionEnabled = !SettingsStore.getValue("RoomList.showDmSection");
+        SettingsStore.setValue("RoomList.showDmSection", null, SettingLevel.DEVICE, isPeopleSectionEnabled);
+        this.snapshot.merge({ isPeopleSectionEnabled });
+    };
+
     public createSection = (): void => {
         RoomListStoreV3.instance.createSection();
         PosthogTrackers.trackSectionCreation("RoomListHeader");
@@ -288,10 +294,12 @@ function getInitialSnapshot(spaceStore: SpaceStore, matrixClient: MatrixClient):
     }
 
     const isMessagePreviewEnabled = SettingsStore.getValue("RoomList.showMessagePreview");
+    const isPeopleSectionEnabled = SettingsStore.getValue("RoomList.showDmSection");
 
     return {
         activeSortOption,
         isMessagePreviewEnabled,
+        isPeopleSectionEnabled,
         ...computeHeaderSpaceState(spaceStore, matrixClient),
     };
 }
@@ -323,7 +331,7 @@ function getCanCreateVideoRoom(canCreateRoom: boolean): boolean {
 function computeHeaderSpaceState(
     spaceStore: SpaceStore,
     matrixClient: MatrixClient,
-): Omit<RoomListHeaderViewSnapshot, "activeSortOption" | "isMessagePreviewEnabled"> {
+): Omit<RoomListHeaderViewSnapshot, "activeSortOption" | "isMessagePreviewEnabled" | "isPeopleSectionEnabled"> {
     const displaySectionReleaseAnnouncement =
         ReleaseAnnouncementStore.instance.getReleaseAnnouncement() === "room_list_section";
     const areSectionsEnabled = SettingsStore.getValue("RoomList.showSections");

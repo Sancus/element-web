@@ -60,6 +60,10 @@ export interface RoomListHeaderViewSnapshot {
      */
     isMessagePreviewEnabled: boolean;
     /**
+     * Whether the automatic "People" section is shown in the room list.
+     */
+    isPeopleSectionEnabled: boolean;
+    /**
      * Whether sections are enabled in the room list.
      */
     areSectionsEnabled: boolean;
@@ -112,6 +116,10 @@ export interface RoomListHeaderViewActions {
      * Toggle message preview display in the room list.
      */
     toggleMessagePreview: () => void;
+    /**
+     * Toggle the automatic "People" section in the room list.
+     */
+    togglePeopleSection: () => void;
     /**
      * Create a new section in the room list.
      */

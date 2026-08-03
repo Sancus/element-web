@@ -21,6 +21,7 @@ import {
     CHATS_TAG,
     CUSTOM_SECTION_TAG_PREFIX,
     isSectionTag,
+    PEOPLE_TAG,
     reorderSection,
 } from "../../../../src/stores/room-list-v3/section";
 import { SettingLevel } from "../../../../src/settings/SettingLevel";
@@ -517,9 +518,12 @@ describe("section", () => {
     });
 
     describe("isDefaultSectionTag", () => {
-        it.each([DefaultTagID.Favourite, DefaultTagID.LowPriority, CHATS_TAG])("returns true for %s", (tag) => {
-            expect(isDefaultSectionTag(tag)).toBe(true);
-        });
+        it.each([DefaultTagID.Favourite, DefaultTagID.LowPriority, CHATS_TAG, PEOPLE_TAG])(
+            "returns true for %s",
+            (tag) => {
+                expect(isDefaultSectionTag(tag)).toBe(true);
+            },
+        );
 
         it.each([DefaultTagID.Invite, "some.random.tag"])("returns false for %s", (tag) => {
             expect(isDefaultSectionTag(tag)).toBe(false);
@@ -527,12 +531,15 @@ describe("section", () => {
     });
 
     describe("isSectionTag", () => {
-        it.each([DefaultTagID.Favourite, DefaultTagID.LowPriority, CHATS_TAG, `${CUSTOM_SECTION_TAG_PREFIX}some-uuid`])(
-            "returns true for %s",
-            (tag) => {
-                expect(isSectionTag(tag)).toBe(true);
-            },
-        );
+        it.each([
+            DefaultTagID.Favourite,
+            DefaultTagID.LowPriority,
+            CHATS_TAG,
+            PEOPLE_TAG,
+            `${CUSTOM_SECTION_TAG_PREFIX}some-uuid`,
+        ])("returns true for %s", (tag) => {
+            expect(isSectionTag(tag)).toBe(true);
+        });
 
         it.each([DefaultTagID.Invite, "some.random.tag"])("returns false for %s", (tag) => {
             expect(isSectionTag(tag)).toBe(false);

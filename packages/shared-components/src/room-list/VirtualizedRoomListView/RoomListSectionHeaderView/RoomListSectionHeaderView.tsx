@@ -126,8 +126,8 @@ export const RoomListSectionHeaderView = memo(function RoomListSectionHeaderView
     const isDraggingSectionSource = isSectionDragData(draggedData);
 
     // Keep the droppable enabled so rooms can still be dropped on default sections
-    // (Favourite / Low Priority). Only disable it for section drags on non-reorderable
-    // headers so they can't be used as reorder targets.
+    // (Favourite / Low Priority). Only disable it when a section is being dragged onto a
+    // non-reorderable header, so those can't be used as reorder targets.
     const { ref: droppableRef, isDropTarget } = useDroppable<SectionDragData>({
         id,
         data: { type: "section", index: sectionIndex },

@@ -199,7 +199,9 @@
             "toggle": "Toggle %(section)s section",
             "toggle_unread": "Toggle %(section)s section with unread rooms"
         },
+        "sections": "Sections",
         "show_message_previews": "Show message previews",
+        "show_people_section": "Show People section",
         "sort": "Sort",
         "sort_type": {
             "activity": "Latest activity",

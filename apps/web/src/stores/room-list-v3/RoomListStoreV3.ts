@@ -11,7 +11,7 @@ import { EventType } from "matrix-js-sdk/src/matrix";
 import type { EmptyObject, Room } from "matrix-js-sdk/src/matrix";
 import type { MatrixDispatcher } from "../../dispatcher/dispatcher";
 import type { ActionPayload } from "../../dispatcher/payloads";
-import type { Filter, FilterKey } from "./skip-list/filters";
+import { type Filter, type FilterKey, FilterEnum } from "./skip-list/filters";
 import { AsyncStoreWithClient } from "../AsyncStoreWithClient";
 import SettingsStore from "../../settings/SettingsStore";
 import defaultDispatcher from "../../dispatcher/dispatcher";
@@ -37,14 +37,15 @@ import { isRoomVisible } from "./isRoomVisible";
 import { RoomSkipList } from "./skip-list/RoomSkipList";
 import { getTagsForRoom } from "../../utils/room/getTagsForRoom";
 import { ExcludeTagsFilter } from "./skip-list/filters/ExcludeTagsFilter";
+import { PeopleSectionFilter } from "./skip-list/filters/PeopleSectionFilter";
 import { TagFilter } from "./skip-list/filters/TagFilter";
-import { filterBoolean } from "../../utils/arrays";
 import {
     CHATS_TAG,
     createSection,
     deleteSection,
     editSection,
     getOrderedReorderableSections,
+    PEOPLE_TAG,
     reorderSection,
 } from "./section";
 import { DefaultTagID, type TagID } from "./skip-list/tag";
@@ -111,9 +112,11 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     private roomSkipList?: RoomSkipList;
 
     /**
-     * Maps section tags to their corresponding tag filters, used to determine which rooms belong in which sections.
+     * Maps section tags to the filter keys a room has to match to belong to that section.
+     * Most sections are defined by a single tag filter, but the sections that hold the untagged
+     * rooms are defined by a combination (see {@link getSkipListFilters}).
      */
-    private readonly filterByTag: Map<string, Filter> = new Map();
+    private readonly filterByTag: Map<string, FilterKey[]> = new Map();
 
     /**
      * Defines the display order of sections.
@@ -135,7 +138,8 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
             this.onActiveSpaceChanged();
         });
         SDKContextClass.instance.spaceStore.on(UPDATE_HOME_BEHAVIOUR, () => this.onActiveSpaceChanged());
-        SettingsStore.watchSetting("RoomList.OrderedCustomSections", null, () => this.onOrderedCustomSectionsChange());
+        SettingsStore.watchSetting("RoomList.OrderedCustomSections", null, () => this.onSectionsChange());
+        SettingsStore.watchSetting("RoomList.showDmSection", null, () => this.onSectionsChange());
         this.loadCustomSections();
 
         SettingsStore.watchSetting("RoomList.showSections", null, () => this.scheduleEmit());
@@ -390,6 +394,11 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
                         needsEmit = true;
                     }
                 }
+                // The event only lists the rooms that are DMs now, so a room that stopped being one
+                // isn't covered by the loop above. Re-evaluate every room so it leaves the People
+                // section (and the People filter) as well.
+                this.roomSkipList?.useNewFilters(this.getSkipListFilters());
+                needsEmit = true;
                 break;
             }
             case EventType.PushRules: {
@@ -484,15 +493,35 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
 
     /**
      * Get the list of filters to be used in the skip list, including the tag filters for sectioning.
+     * Also refreshes {@link filterByTag} to match.
      */
     private getSkipListFilters(): Filter[] {
-        const tagsToExclude = this.sortedTags.filter((tag) => tag !== CHATS_TAG);
-        const tagFilters = this.sortedTags.map((tag) =>
-            tag === CHATS_TAG ? new ExcludeTagsFilter(tagsToExclude) : new TagFilter(tag),
-        );
-        this.sortedTags.forEach((tag, index) => this.filterByTag.set(tag, tagFilters[index]));
+        // Chats holds whatever the other sections leave behind, so it is defined by exclusion
+        // rather than by a tag of its own. People is a mix of the two: rooms tagged into it plus
+        // the direct messages nothing else claims, which takes a filter of its own to express.
+        const taggedSections = this.sortedTags.filter((tag) => tag !== CHATS_TAG && tag !== PEOPLE_TAG);
+        const hasPeopleSection = this.sortedTags.includes(PEOPLE_TAG);
 
-        return [...FILTERS, ...tagFilters];
+        this.filterByTag.clear();
+        for (const tag of taggedSections) this.filterByTag.set(tag, [tag]);
+        this.filterByTag.set(
+            CHATS_TAG,
+            // RoomsFilter matches everything that isn't a DM, which is what Chats is left with once
+            // the People section takes the untagged DMs.
+            hasPeopleSection ? [FilterEnum.ExcludeTagsFilter, FilterEnum.RoomsFilter] : [FilterEnum.ExcludeTagsFilter],
+        );
+        if (hasPeopleSection) this.filterByTag.set(PEOPLE_TAG, [PEOPLE_TAG]);
+
+        const filters: Filter[] = [...FILTERS, ...taggedSections.map((tag) => new TagFilter(tag))];
+        if (hasPeopleSection) {
+            filters.push(new PeopleSectionFilter(PEOPLE_TAG, taggedSections));
+            // A room moved into People by hand carries its tag, so Chats has to leave it alone too
+            filters.push(new ExcludeTagsFilter([...taggedSections, PEOPLE_TAG]));
+        } else {
+            // With the section gone, its leftover tags mean nothing and those rooms fall back to Chats
+            filters.push(new ExcludeTagsFilter(taggedSections));
+        }
+        return filters;
     }
 
     /**
@@ -503,7 +532,7 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     private getSections(filterKeys?: FilterKey[]): Section[] {
         return this.sortedTags
             .map((tag) => {
-                const filters = filterBoolean([this.filterByTag.get(tag)?.key, ...(filterKeys ?? [])]);
+                const filters = [...(this.filterByTag.get(tag) ?? []), ...(filterKeys ?? [])];
 
                 return {
                     tag,
@@ -514,11 +543,11 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     }
 
     /**
-     * Handle changes to the order of custom sections.
-     * Reloads the custom sections, updates the skip list filters to reflect the new order and emits an update.
+     * Handle changes to which sections exist and in what order.
+     * Reloads the sections, updates the skip list filters to reflect the new set and emits an update.
      * Emit {@link LISTS_UPDATE_EVENT}.
      */
-    private onOrderedCustomSectionsChange(): void {
+    private onSectionsChange(): void {
         this.loadCustomSections();
         if (!this.roomSkipList) return;
         this.roomSkipList.useNewFilters(this.getSkipListFilters());
@@ -577,7 +606,12 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     private loadCustomSections(): void {
         // Favourite is pinned to the top and LowPriority to the bottom. Everything in between
         // (custom sections + Chats) is user-reorderable.
-        const reorderable = getOrderedReorderableSections();
+        const reorderable: string[] = getOrderedReorderableSections();
+        if (SettingsStore.getValue("RoomList.showDmSection")) {
+            // People isn't reorderable either: it always sits directly above the Chats section it
+            // takes its rooms from. getOrderedReorderableSections always includes CHATS_TAG.
+            reorderable.splice(reorderable.indexOf(CHATS_TAG), 0, PEOPLE_TAG);
+        }
         this.sortedTags = [DefaultTagID.Favourite, ...reorderable, DefaultTagID.LowPriority];
     }
 }

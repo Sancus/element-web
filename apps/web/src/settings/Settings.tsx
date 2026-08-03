@@ -333,6 +333,7 @@ export interface Settings {
     "RoomList.panelSize": IBaseSetting<number | null>;
     "RoomList.isPanelCollapsed": IBaseSetting<boolean>;
     "RoomList.showMessagePreview": IBaseSetting<boolean>;
+    "RoomList.showDmSection": IBaseSetting<boolean>;
     "RightPanel.phasesGlobal": IBaseSetting<IRightPanelForRoomStored | null>;
     "RightPanel.phases": IBaseSetting<IRightPanelForRoomStored | null>;
     "enableEventIndexing": IBaseSetting<boolean>;
@@ -1219,6 +1220,14 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
         default: false,
         displayName: _td("settings|show_message_previews"),
+    },
+    /**
+     * Whether the room list shows the automatic "People" section, which holds the direct messages
+     * that no other section claims. When disabled, those rooms stay in the Chats section.
+     */
+    "RoomList.showDmSection": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
+        default: true,
     },
     "RoomList.showSections": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,

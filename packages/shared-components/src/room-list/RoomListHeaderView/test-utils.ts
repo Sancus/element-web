@@ -23,6 +23,7 @@ export class MockedViewModel extends MockViewModel<RoomListHeaderViewSnapshot> i
     public sort = vi.fn<() => void>();
     public openSpacePreferences = vi.fn<() => void>();
     public toggleMessagePreview = vi.fn<() => void>();
+    public togglePeopleSection = vi.fn<() => void>();
     public createSection = vi.fn<() => void>();
     public collapseOrExpandSections = vi.fn<() => void>();
     public closeSectionReleaseAnnouncement = vi.fn<() => void>();

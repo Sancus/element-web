@@ -32,7 +32,7 @@ import { CallEvent, type Call } from "../../../src/models/Call";
 import { RoomListItemViewModel } from "../../../src/viewmodels/room-list/RoomListItemViewModel";
 import RoomListStoreV3 from "../../../src/stores/room-list-v3/RoomListStoreV3";
 import * as tagRoomModule from "../../../src/utils/room/tagRoom";
-import { CHATS_TAG } from "../../../src/stores/room-list-v3/section";
+import { CHATS_TAG, PEOPLE_TAG } from "../../../src/stores/room-list-v3/section";
 
 jest.mock("../../../src/viewmodels/room-list/utils", () => ({
     hasAccessToOptionsMenu: jest.fn().mockReturnValue(true),
@@ -621,6 +621,21 @@ describe("RoomListItemViewModel", () => {
 
             const sections = viewModel.getSnapshot().sections;
             expect(sections.map((s) => s.tag)).toEqual([customTag]);
+        });
+
+        it("should include the People section so rooms can be moved into it by hand", () => {
+            jest.spyOn(RoomListStoreV3.instance, "orderedSectionTags", "get").mockReturnValue([
+                DefaultTagID.Favourite,
+                customTag,
+                PEOPLE_TAG,
+                CHATS_TAG,
+                DefaultTagID.LowPriority,
+            ]);
+
+            viewModel = new RoomListItemViewModel({ room, client: matrixClient });
+
+            const sections = viewModel.getSnapshot().sections;
+            expect(sections.map((s) => s.tag)).toEqual([customTag, PEOPLE_TAG]);
         });
 
         it("should mark the room current section as selected", () => {
