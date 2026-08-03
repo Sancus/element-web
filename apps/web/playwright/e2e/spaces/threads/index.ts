@@ -283,11 +283,13 @@ export class Helpers {
      * Assert that the threads nav button has no indicator
      */
     async assertNoThreadsIndicator() {
-        // The inverse of the two positive assertions below, which is enough on its own: the
-        // indicator is a real element, so a screenshot would only restate this while adding a
-        // baseline image to maintain.
-        await expect(this.getThreadsNavButton().locator("[data-indicator='success']")).not.toBeVisible();
-        await expect(this.getThreadsNavButton().locator("[data-indicator='critical']")).not.toBeVisible();
+        // Asserted as the absence of any indicator rather than of the two named ones:
+        // `notificationLevelToIndicator` can also return "default" for activity-level unreads, and
+        // a residual grey dot would satisfy a check that only looked for success and critical.
+        // Anchored on the button existing first, so this cannot pass by the whole space panel
+        // having failed to render.
+        await expect(this.getThreadsNavButton()).toBeVisible();
+        await expect(this.getThreadsNavButton().locator("[data-indicator]")).not.toBeAttached();
     }
 
     /**
@@ -321,11 +323,25 @@ export class Helpers {
      */
     async expandThreadCard(rootMessage: string) {
         const card = this.getThreadCard(rootMessage);
+        // Anchored so that the bare "Reply" alternative cannot also match a control like
+        // "Reply in thread" that happens to render earlier in the card.
         await card
-            .getByRole("button", { name: /Show \d+ more repl|Reply/ })
+            .getByRole("button", { name: /^(Show \d+ more repl|Reply…$)/ })
             .first()
             .click();
         await expect(card.getByRole("button", { name: "Collapse thread" })).toBeVisible();
+    }
+
+    /**
+     * The composer inside an expanded thread card.
+     *
+     * The accessible name comes from the placeholder, which differs by encryption state — an
+     * unencrypted room says "Send an unencrypted message…" where an encrypted one says "Send a
+     * message…" — so this matches either rather than pinning the tests to how the fixture rooms
+     * happen to be created.
+     */
+    getCardComposer(card: Locator): Locator {
+        return card.getByRole("textbox", { name: /^Send an? (unencrypted )?message…$/ });
     }
 
     /**
