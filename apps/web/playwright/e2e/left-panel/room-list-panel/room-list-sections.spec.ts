@@ -311,7 +311,9 @@ test.describe("Room list sections", () => {
          */
         async function readRoomOrder(page: Page): Promise<string[]> {
             const rows = await getRoomList(page).getByRole("row").allInnerTexts();
-            return rows.map((text) => LABELS.find((label) => text.includes(label))).filter((label) => !!label);
+            return rows
+                .map((text) => LABELS.find((label) => text.includes(label)))
+                .filter((label): label is string => label !== undefined);
         }
 
         async function expectRoomOrder(page: Page, expected: string[]): Promise<void> {

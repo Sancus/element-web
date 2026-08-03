@@ -438,7 +438,7 @@ export default defineConfig({
                 "{packages,apps,modules}/*/src/**/__mocks__/*.{ts,tsx}",
                 "{packages,apps,modules}/*/{test,playwright,e2e}/**/*",
                 "{packages,apps,modules}/*/playwright.config.ts",
-                "{packages,apps,modules}/*/.storybook/**/*",
+                "{packages,apps,modules}/*/.storybook*/**/*",
                 "{packages,apps,modules}/*/__mocks__/**/*",
                 "packages/playwright-common/src/**/*",
             ],
