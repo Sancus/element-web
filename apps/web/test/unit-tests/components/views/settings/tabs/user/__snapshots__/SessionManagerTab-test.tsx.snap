@@ -489,6 +489,15 @@ exports[`<SessionManagerTab /> goes to filtered list from security recommendatio
     </form>
   </span>
   <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Select all
+    </span>
+  </span>
+  <span
     class="mx_FilteredDeviceListHeader_label"
   >
     Sessions

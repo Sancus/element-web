@@ -59,6 +59,15 @@ exports[`AppTile destroys non-persisted right panel widget on room change 1`] = 
             </svg>
           </div>
         </button>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-2"
+          >
+            Close
+          </span>
+        </span>
       </div>
       <div
         class="mx_AppTileFullWidth"
@@ -369,6 +378,49 @@ exports[`AppTile for a pinned widget should render permission request 1`] = `
                   />
                 </svg>
               </div>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-3"
+                >
+                  Any of the following data may be shared:
+                </span>
+                <div
+                  class="_caption_1nqnq_28 cpd-theme-dark"
+                  id="react-use-id-2"
+                >
+                  <ul>
+                    <li>
+                      Your display name
+                    </li>
+                    <li>
+                      Your profile picture URL
+                    </li>
+                    <li>
+                      Your user ID
+                    </li>
+                    <li>
+                      Your device ID
+                    </li>
+                    <li>
+                      Your theme
+                    </li>
+                    <li>
+                      Your language
+                    </li>
+                    <li>
+                      Element URL
+                    </li>
+                    <li>
+                      Room ID
+                    </li>
+                    <li>
+                      Widget ID
+                    </li>
+                  </ul>
+                </div>
+              </span>
                with example.com.
             </span>
           </div>

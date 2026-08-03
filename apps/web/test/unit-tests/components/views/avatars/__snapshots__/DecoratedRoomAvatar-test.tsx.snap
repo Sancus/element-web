@@ -32,6 +32,15 @@ exports[`DecoratedRoomAvatar shows an avatar with globe icon and tooltip for pub
         />
       </svg>
     </div>
+    <span
+      style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+    >
+      <span
+        id="react-use-id-1"
+      >
+        This room is public
+      </span>
+    </span>
   </div>
 </DocumentFragment>
 `;
@@ -56,6 +65,15 @@ exports[`DecoratedRoomAvatar shows the presence indicator in a DM room that also
       class="mx_DecoratedRoomAvatar_icon mx_DecoratedRoomAvatar_icon_online"
       tabindex="0"
     />
+    <span
+      style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+    >
+      <span
+        id="react-use-id-1"
+      >
+        Online
+      </span>
+    </span>
   </div>
 </DocumentFragment>
 `;

@@ -389,7 +389,8 @@ describe("RoomHeader", () => {
                 {} as MatrixCall,
             );
             const { container } = render(<RoomHeader room={room} />, getWrapper());
-            for (const button of getAllByLabelText(container, "Ongoing call")) {
+            // The icon inside each button carries the same label, so ask for the buttons themselves.
+            for (const button of getAllByLabelText(container, "Ongoing call", { selector: "button" })) {
                 expect(button).toHaveAttribute("aria-disabled", "true");
             }
         });
@@ -515,7 +516,7 @@ describe("RoomHeader", () => {
                 {} as MatrixCall,
             );
             const { container } = render(<RoomHeader room={room} />, getWrapper());
-            for (const button of getAllByLabelText(container, "Ongoing call")) {
+            for (const button of getAllByLabelText(container, "Ongoing call", { selector: "button" })) {
                 expect(button).toHaveAttribute("aria-disabled", "true");
             }
         });
@@ -588,7 +589,7 @@ describe("RoomHeader", () => {
             );
             const { container } = render(<RoomHeader room={room} />, getWrapper());
 
-            const [videoButton] = getAllByLabelText(container, "Ongoing call");
+            const [videoButton] = getAllByLabelText(container, "Ongoing call", { selector: "button" });
 
             expect(videoButton).toHaveAttribute("aria-disabled", "true");
         });

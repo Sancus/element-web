@@ -45,6 +45,15 @@ exports[`<BaseCard /> should close when clicking X button 1`] = `
           </svg>
         </div>
       </button>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Close
+        </span>
+      </span>
     </div>
     <div
       class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar"

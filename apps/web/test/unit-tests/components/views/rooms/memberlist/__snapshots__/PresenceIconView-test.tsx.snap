@@ -38,6 +38,15 @@ exports[`<PresenceIconView/> renders correctly for presence=busy 1`] = `
       </svg>
     </div>
   </span>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Busy
+    </span>
+  </span>
 </div>
 `;
 
@@ -79,6 +88,15 @@ exports[`<PresenceIconView/> renders correctly for presence=offline 1`] = `
       </svg>
     </div>
   </span>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Offline
+    </span>
+  </span>
 </div>
 `;
 
@@ -117,6 +135,15 @@ exports[`<PresenceIconView/> renders correctly for presence=online 1`] = `
         </defs>
       </svg>
     </div>
+  </span>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Online
+    </span>
   </span>
 </div>
 `;
@@ -157,6 +184,15 @@ exports[`<PresenceIconView/> renders correctly for presence=unavailable/unreacha
       </svg>
     </div>
   </span>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Away
+    </span>
+  </span>
 </div>
 `;
 
@@ -195,6 +231,15 @@ exports[`<PresenceIconView/> renders correctly for presence=unavailable/unreacha
         </defs>
       </svg>
     </div>
+  </span>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Away
+    </span>
   </span>
 </div>
 `;

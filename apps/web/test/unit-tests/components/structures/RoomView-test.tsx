@@ -368,6 +368,9 @@ describe("RoomView", () => {
             instance.messagePanel = {
                 sendReadReceipts: sendReadReceiptsSpy,
                 updateReadMarker: updateReadMarkerSpy,
+                // Unmount reads the scroll state off the panel, and a stub that throws there leaves
+                // this RoomView registered on the dispatcher for the rest of the file.
+                getScrollState: jest.fn(),
             };
 
             // Find the main RoomView div and trigger focus

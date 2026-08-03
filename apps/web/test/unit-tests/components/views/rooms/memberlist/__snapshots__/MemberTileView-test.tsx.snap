@@ -73,6 +73,15 @@ exports[`MemberTileView RoomMemberTileView should display an verified E2EIcon wh
             />
           </svg>
         </div>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-1"
+          >
+            You have verified this user. This user has verified all of their sessions.
+          </span>
+        </span>
       </div>
     </div>
   </div>
@@ -152,6 +161,15 @@ exports[`MemberTileView RoomMemberTileView should display an warning E2EIcon whe
             />
           </svg>
         </div>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-1"
+          >
+            This user has not verified all of their sessions.
+          </span>
+        </span>
       </div>
     </div>
   </div>

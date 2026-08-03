@@ -436,6 +436,15 @@ exports[`RoomView for a local room in state NEW should match the snapshot 1`] = 
                   d="M6 22q-.825 0-1.412-.587A1.93 1.93 0 0 1 4 20V10q0-.825.588-1.412a2 2 0 0 1 .702-.463L1.333 4.167a1 1 0 0 1 1.414-1.414L7 7.006v-.012l13 13v.012l1.247 1.247a1 1 0 1 1-1.414 1.414l-.896-.896A1.94 1.94 0 0 1 18 22zm14-4.834V10q0-.825-.587-1.412A1.93 1.93 0 0 0 18 8h-1V6q0-2.075-1.463-3.537Q14.075 1 12 1T8.463 2.463a4.9 4.9 0 0 0-1.22 1.946L9 6.166V6q0-1.25.875-2.125A2.9 2.9 0 0 1 12 3q1.25 0 2.125.875T15 6v2h-4.166z"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-1"
+                >
+                  Messages in this room are not end-to-end encrypted
+                </span>
+              </span>
             </div>
             <div
               class="mx_SendMessageComposer"
@@ -634,6 +643,15 @@ exports[`RoomView for a local room in state NEW should match the snapshot 1`] = 
                   </svg>
                 </div>
               </button>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-2"
+                >
+                  Attachment
+                </span>
+              </span>
               <div
                 aria-label="More options"
                 class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"
@@ -726,6 +744,15 @@ exports[`RoomView for a local room in state NEW that is encrypted should match t
                 d="M13 8a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l2.83 2.83a1 1 0 0 0 1.414-1.414L13 11.586z"
               />
             </svg>
+            <span
+              style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+            >
+              <span
+                id="react-use-id-1"
+              >
+                New members see history
+              </span>
+            </span>
           </div>
         </div>
       </button>
@@ -1015,6 +1042,15 @@ exports[`RoomView for a local room in state NEW that is encrypted should match t
                   </svg>
                 </div>
               </button>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-2"
+                >
+                  Attachment
+                </span>
+              </span>
               <div
                 aria-label="More options"
                 class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"
@@ -1205,6 +1241,15 @@ exports[`RoomView should hide the composer when hideComposer=true 1`] = `
                   d="M6 4h10a2 2 0 0 1 2 2v4.286l3.35-2.871a1 1 0 0 1 1.65.76v7.65a1 1 0 0 1-1.65.76L18 13.715V18a2 2 0 0 1-2 2H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-1"
+                >
+                  Video call
+                </span>
+              </span>
             </div>
           </button>
           <button
@@ -1232,6 +1277,15 @@ exports[`RoomView should hide the composer when hideComposer=true 1`] = `
                   d="m20.958 16.374.039 3.527q0 .427-.33.756-.33.33-.756.33a16 16 0 0 1-6.57-1.105 16.2 16.2 0 0 1-5.563-3.663 16.1 16.1 0 0 1-3.653-5.573 16.3 16.3 0 0 1-1.115-6.56q0-.427.33-.757T4.095 3l3.528.039a1.07 1.07 0 0 1 1.085.93l.543 3.954q.039.271-.039.504a1.1 1.1 0 0 1-.271.426l-1.64 1.64q.505 1.008 1.154 1.909c.433.6 1.444 1.696 1.444 1.696s1.095 1.01 1.696 1.444q.9.65 1.909 1.153l1.64-1.64q.193-.193.426-.27t.504-.04l3.954.543q.406.059.668.359t.262.727"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-2"
+                >
+                  Voice call
+                </span>
+              </span>
             </div>
           </button>
           <button
@@ -1261,6 +1315,15 @@ exports[`RoomView should hide the composer when hideComposer=true 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-3"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-4"
@@ -1288,6 +1351,15 @@ exports[`RoomView should hide the composer when hideComposer=true 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-4"
+            >
+              Room info
+            </span>
+          </span>
           <div
             class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
           >
@@ -1303,6 +1375,15 @@ exports[`RoomView should hide the composer when hideComposer=true 1`] = `
               />
               0
             </div>
+            <span
+              style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+            >
+              <span
+                id="react-use-id-5"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
@@ -1443,6 +1524,15 @@ exports[`RoomView should hide the header when hideHeader=true 1`] = `
                     d="M6 22q-.825 0-1.412-.587A1.93 1.93 0 0 1 4 20V10q0-.825.588-1.412a2 2 0 0 1 .702-.463L1.333 4.167a1 1 0 0 1 1.414-1.414L7 7.006v-.012l13 13v.012l1.247 1.247a1 1 0 1 1-1.414 1.414l-.896-.896A1.94 1.94 0 0 1 18 22zm14-4.834V10q0-.825-.587-1.412A1.93 1.93 0 0 0 18 8h-1V6q0-2.075-1.463-3.537Q14.075 1 12 1T8.463 2.463a4.9 4.9 0 0 0-1.22 1.946L9 6.166V6q0-1.25.875-2.125A2.9 2.9 0 0 1 12 3q1.25 0 2.125.875T15 6v2h-4.166z"
                   />
                 </svg>
+                <span
+                  style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                >
+                  <span
+                    id="react-use-id-1"
+                  >
+                    Messages in this room are not end-to-end encrypted
+                  </span>
+                </span>
               </div>
               <div
                 class="mx_SendMessageComposer"
@@ -1641,6 +1731,15 @@ exports[`RoomView should hide the header when hideHeader=true 1`] = `
                     </svg>
                   </div>
                 </button>
+                <span
+                  style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                >
+                  <span
+                    id="react-use-id-2"
+                  >
+                    Attachment
+                  </span>
+                </span>
                 <div
                   aria-label="More options"
                   class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"
@@ -1759,6 +1858,15 @@ exports[`RoomView should hide the pinned message banner when hidePinnedMessageBa
                   d="M6 4h10a2 2 0 0 1 2 2v4.286l3.35-2.871a1 1 0 0 1 1.65.76v7.65a1 1 0 0 1-1.65.76L18 13.715V18a2 2 0 0 1-2 2H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-1"
+                >
+                  Video call
+                </span>
+              </span>
             </div>
           </button>
           <button
@@ -1786,6 +1894,15 @@ exports[`RoomView should hide the pinned message banner when hidePinnedMessageBa
                   d="m20.958 16.374.039 3.527q0 .427-.33.756-.33.33-.756.33a16 16 0 0 1-6.57-1.105 16.2 16.2 0 0 1-5.563-3.663 16.1 16.1 0 0 1-3.653-5.573 16.3 16.3 0 0 1-1.115-6.56q0-.427.33-.757T4.095 3l3.528.039a1.07 1.07 0 0 1 1.085.93l.543 3.954q.039.271-.039.504a1.1 1.1 0 0 1-.271.426l-1.64 1.64q.505 1.008 1.154 1.909c.433.6 1.444 1.696 1.444 1.696s1.095 1.01 1.696 1.444q.9.65 1.909 1.153l1.64-1.64q.193-.193.426-.27t.504-.04l3.954.543q.406.059.668.359t.262.727"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-2"
+                >
+                  Voice call
+                </span>
+              </span>
             </div>
           </button>
           <button
@@ -1815,6 +1932,15 @@ exports[`RoomView should hide the pinned message banner when hidePinnedMessageBa
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-3"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-4"
@@ -1842,6 +1968,15 @@ exports[`RoomView should hide the pinned message banner when hidePinnedMessageBa
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-4"
+            >
+              Room info
+            </span>
+          </span>
           <div
             class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
           >
@@ -1857,6 +1992,15 @@ exports[`RoomView should hide the pinned message banner when hidePinnedMessageBa
               />
               0
             </div>
+            <span
+              style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+            >
+              <span
+                id="react-use-id-5"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
@@ -1927,6 +2071,15 @@ exports[`RoomView should hide the pinned message banner when hidePinnedMessageBa
                     d="M6 22q-.825 0-1.412-.587A1.93 1.93 0 0 1 4 20V10q0-.825.588-1.412a2 2 0 0 1 .702-.463L1.333 4.167a1 1 0 0 1 1.414-1.414L7 7.006v-.012l13 13v.012l1.247 1.247a1 1 0 1 1-1.414 1.414l-.896-.896A1.94 1.94 0 0 1 18 22zm14-4.834V10q0-.825-.587-1.412A1.93 1.93 0 0 0 18 8h-1V6q0-2.075-1.463-3.537Q14.075 1 12 1T8.463 2.463a4.9 4.9 0 0 0-1.22 1.946L9 6.166V6q0-1.25.875-2.125A2.9 2.9 0 0 1 12 3q1.25 0 2.125.875T15 6v2h-4.166z"
                   />
                 </svg>
+                <span
+                  style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                >
+                  <span
+                    id="react-use-id-6"
+                  >
+                    Messages in this room are not end-to-end encrypted
+                  </span>
+                </span>
               </div>
               <div
                 class="mx_SendMessageComposer"
@@ -2125,6 +2278,15 @@ exports[`RoomView should hide the pinned message banner when hidePinnedMessageBa
                     </svg>
                   </div>
                 </button>
+                <span
+                  style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                >
+                  <span
+                    id="react-use-id-7"
+                  >
+                    Attachment
+                  </span>
+                </span>
                 <div
                   aria-label="More options"
                   class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"
@@ -2243,6 +2405,15 @@ exports[`RoomView should hide the right panel when hideRightPanel=true 1`] = `
                   d="M6 4h10a2 2 0 0 1 2 2v4.286l3.35-2.871a1 1 0 0 1 1.65.76v7.65a1 1 0 0 1-1.65.76L18 13.715V18a2 2 0 0 1-2 2H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-1"
+                >
+                  Video call
+                </span>
+              </span>
             </div>
           </button>
           <button
@@ -2270,6 +2441,15 @@ exports[`RoomView should hide the right panel when hideRightPanel=true 1`] = `
                   d="m20.958 16.374.039 3.527q0 .427-.33.756-.33.33-.756.33a16 16 0 0 1-6.57-1.105 16.2 16.2 0 0 1-5.563-3.663 16.1 16.1 0 0 1-3.653-5.573 16.3 16.3 0 0 1-1.115-6.56q0-.427.33-.757T4.095 3l3.528.039a1.07 1.07 0 0 1 1.085.93l.543 3.954q.039.271-.039.504a1.1 1.1 0 0 1-.271.426l-1.64 1.64q.505 1.008 1.154 1.909c.433.6 1.444 1.696 1.444 1.696s1.095 1.01 1.696 1.444q.9.65 1.909 1.153l1.64-1.64q.193-.193.426-.27t.504-.04l3.954.543q.406.059.668.359t.262.727"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-2"
+                >
+                  Voice call
+                </span>
+              </span>
             </div>
           </button>
           <button
@@ -2299,6 +2479,15 @@ exports[`RoomView should hide the right panel when hideRightPanel=true 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-3"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-4"
@@ -2326,6 +2515,15 @@ exports[`RoomView should hide the right panel when hideRightPanel=true 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-4"
+            >
+              Room info
+            </span>
+          </span>
           <div
             class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
           >
@@ -2341,6 +2539,15 @@ exports[`RoomView should hide the right panel when hideRightPanel=true 1`] = `
               />
               0
             </div>
+            <span
+              style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+            >
+              <span
+                id="react-use-id-5"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
@@ -2411,6 +2618,15 @@ exports[`RoomView should hide the right panel when hideRightPanel=true 1`] = `
                     d="M6 22q-.825 0-1.412-.587A1.93 1.93 0 0 1 4 20V10q0-.825.588-1.412a2 2 0 0 1 .702-.463L1.333 4.167a1 1 0 0 1 1.414-1.414L7 7.006v-.012l13 13v.012l1.247 1.247a1 1 0 1 1-1.414 1.414l-.896-.896A1.94 1.94 0 0 1 18 22zm14-4.834V10q0-.825-.587-1.412A1.93 1.93 0 0 0 18 8h-1V6q0-2.075-1.463-3.537Q14.075 1 12 1T8.463 2.463a4.9 4.9 0 0 0-1.22 1.946L9 6.166V6q0-1.25.875-2.125A2.9 2.9 0 0 1 12 3q1.25 0 2.125.875T15 6v2h-4.166z"
                   />
                 </svg>
+                <span
+                  style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                >
+                  <span
+                    id="react-use-id-6"
+                  >
+                    Messages in this room are not end-to-end encrypted
+                  </span>
+                </span>
               </div>
               <div
                 class="mx_SendMessageComposer"
@@ -2609,6 +2825,15 @@ exports[`RoomView should hide the right panel when hideRightPanel=true 1`] = `
                     </svg>
                   </div>
                 </button>
+                <span
+                  style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                >
+                  <span
+                    id="react-use-id-7"
+                  >
+                    Attachment
+                  </span>
+                </span>
                 <div
                   aria-label="More options"
                   class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"
@@ -2727,6 +2952,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
                   d="M6 4h10a2 2 0 0 1 2 2v4.286l3.35-2.871a1 1 0 0 1 1.65.76v7.65a1 1 0 0 1-1.65.76L18 13.715V18a2 2 0 0 1-2 2H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-1"
+                >
+                  Video call
+                </span>
+              </span>
             </div>
           </button>
           <button
@@ -2754,6 +2988,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
                   d="m20.958 16.374.039 3.527q0 .427-.33.756-.33.33-.756.33a16 16 0 0 1-6.57-1.105 16.2 16.2 0 0 1-5.563-3.663 16.1 16.1 0 0 1-3.653-5.573 16.3 16.3 0 0 1-1.115-6.56q0-.427.33-.757T4.095 3l3.528.039a1.07 1.07 0 0 1 1.085.93l.543 3.954q.039.271-.039.504a1.1 1.1 0 0 1-.271.426l-1.64 1.64q.505 1.008 1.154 1.909c.433.6 1.444 1.696 1.444 1.696s1.095 1.01 1.696 1.444q.9.65 1.909 1.153l1.64-1.64q.193-.193.426-.27t.504-.04l3.954.543q.406.059.668.359t.262.727"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-2"
+                >
+                  Voice call
+                </span>
+              </span>
             </div>
           </button>
           <button
@@ -2783,6 +3026,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-3"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-4"
@@ -2810,6 +3062,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-4"
+            >
+              Room info
+            </span>
+          </span>
           <div
             class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
           >
@@ -2825,6 +3086,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
               />
               0
             </div>
+            <span
+              style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+            >
+              <span
+                id="react-use-id-5"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
@@ -2937,6 +3207,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
                     d="M13 8a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l2.83 2.83a1 1 0 0 0 1.414-1.414L13 11.586z"
                   />
                 </svg>
+                <span
+                  style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                >
+                  <span
+                    id="react-use-id-1"
+                  >
+                    New members see history
+                  </span>
+                </span>
               </div>
             </div>
           </button>
@@ -2965,6 +3244,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
                   d="M6 4h10a2 2 0 0 1 2 2v4.286l3.35-2.871a1 1 0 0 1 1.65.76v7.65a1 1 0 0 1-1.65.76L18 13.715V18a2 2 0 0 1-2 2H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-2"
+                >
+                  Video call
+                </span>
+              </span>
             </div>
           </button>
           <button
@@ -2992,6 +3280,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
                   d="m20.958 16.374.039 3.527q0 .427-.33.756-.33.33-.756.33a16 16 0 0 1-6.57-1.105 16.2 16.2 0 0 1-5.563-3.663 16.1 16.1 0 0 1-3.653-5.573 16.3 16.3 0 0 1-1.115-6.56q0-.427.33-.757T4.095 3l3.528.039a1.07 1.07 0 0 1 1.085.93l.543 3.954q.039.271-.039.504a1.1 1.1 0 0 1-.271.426l-1.64 1.64q.505 1.008 1.154 1.909c.433.6 1.444 1.696 1.444 1.696s1.095 1.01 1.696 1.444q.9.65 1.909 1.153l1.64-1.64q.193-.193.426-.27t.504-.04l3.954.543q.406.059.668.359t.262.727"
                 />
               </svg>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-3"
+                >
+                  Voice call
+                </span>
+              </span>
             </div>
           </button>
           <button
@@ -3021,6 +3318,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-4"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-5"
@@ -3048,6 +3354,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-5"
+            >
+              Room info
+            </span>
+          </span>
           <div
             class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
           >
@@ -3063,6 +3378,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
               />
               0
             </div>
+            <span
+              style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+            >
+              <span
+                id="react-use-id-6"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
@@ -3142,6 +3466,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
                       />
                     </svg>
                   </div>
+                </span>
+                <span
+                  style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                >
+                  <span
+                    id="react-use-id-7"
+                  >
+                    Everyone in this room is verified
+                  </span>
                 </span>
               </div>
               <div
@@ -3341,6 +3674,15 @@ exports[`RoomView should not display the timeline when the room encryption is lo
                     </svg>
                   </div>
                 </button>
+                <span
+                  style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                >
+                  <span
+                    id="react-use-id-8"
+                  >
+                    Attachment
+                  </span>
+                </span>
                 <div
                   aria-label="More options"
                   class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"
@@ -3491,6 +3833,15 @@ exports[`RoomView video rooms should render joined video room view 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-1"
+            >
+              Chat
+            </span>
+          </span>
           <button
             aria-label="Threads"
             aria-labelledby="react-use-id-2"
@@ -3518,6 +3869,15 @@ exports[`RoomView video rooms should render joined video room view 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-2"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-3"
@@ -3545,6 +3905,15 @@ exports[`RoomView video rooms should render joined video room view 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-3"
+            >
+              Room info
+            </span>
+          </span>
           <div
             class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
           >
@@ -3560,6 +3929,15 @@ exports[`RoomView video rooms should render joined video room view 1`] = `
               />
               0
             </div>
+            <span
+              style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+            >
+              <span
+                id="react-use-id-4"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
@@ -3661,6 +4039,15 @@ exports[`RoomView video rooms should render joined video room view 1`] = `
                   </svg>
                 </div>
               </button>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-5"
+                >
+                  Close
+                </span>
+              </span>
             </div>
             <div
               class="mx_TimelineCard_timeline"
@@ -3709,6 +4096,15 @@ exports[`RoomView video rooms should render joined video room view 1`] = `
                         d="M6 22q-.825 0-1.412-.587A1.93 1.93 0 0 1 4 20V10q0-.825.588-1.412a2 2 0 0 1 .702-.463L1.333 4.167a1 1 0 0 1 1.414-1.414L7 7.006v-.012l13 13v.012l1.247 1.247a1 1 0 1 1-1.414 1.414l-.896-.896A1.94 1.94 0 0 1 18 22zm14-4.834V10q0-.825-.587-1.412A1.93 1.93 0 0 0 18 8h-1V6q0-2.075-1.463-3.537Q14.075 1 12 1T8.463 2.463a4.9 4.9 0 0 0-1.22 1.946L9 6.166V6q0-1.25.875-2.125A2.9 2.9 0 0 1 12 3q1.25 0 2.125.875T15 6v2h-4.166z"
                       />
                     </svg>
+                    <span
+                      style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                    >
+                      <span
+                        id="react-use-id-6"
+                      >
+                        Messages in this room are not end-to-end encrypted
+                      </span>
+                    </span>
                   </div>
                   <div
                     class="mx_SendMessageComposer"
@@ -3907,6 +4303,15 @@ exports[`RoomView video rooms should render joined video room view 1`] = `
                         </svg>
                       </div>
                     </button>
+                    <span
+                      style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+                    >
+                      <span
+                        id="react-use-id-7"
+                      >
+                        Attachment
+                      </span>
+                    </span>
                     <div
                       aria-label="More options"
                       class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"

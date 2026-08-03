@@ -410,6 +410,9 @@ describe("<UserInfo />", () => {
                 room: mockRoom,
             });
             await flushPromises();
+            // The verification section shows a spinner until the cross-signing status arrives, which
+            // is a further tick away: snapshot the resolved state rather than whatever is on screen.
+            await screen.findByText("(User verification unavailable)");
             expect(container).toMatchSnapshot();
         });
 
@@ -426,6 +429,7 @@ describe("<UserInfo />", () => {
             if (screen.queryAllByRole("progressbar").length) {
                 await act(() => waitForElementToBeRemoved(() => screen.queryAllByRole("progressbar")));
             }
+            await screen.findByText("(User verification unavailable)");
             expect(container).toMatchSnapshot();
         });
     });

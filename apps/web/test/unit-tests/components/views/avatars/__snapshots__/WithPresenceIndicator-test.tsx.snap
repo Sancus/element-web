@@ -43,6 +43,15 @@ exports[`WithPresenceIndicator renders presence indicator with tooltip for DM ro
           </svg>
         </div>
       </span>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Online
+        </span>
+      </span>
     </div>
   </div>
 </DocumentFragment>
@@ -93,6 +102,15 @@ exports[`WithPresenceIndicator renders presence indicator with tooltip for DM ro
           </svg>
         </div>
       </span>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Offline
+        </span>
+      </span>
     </div>
   </div>
 </DocumentFragment>
@@ -140,6 +158,15 @@ exports[`WithPresenceIndicator renders presence indicator with tooltip for DM ro
             </defs>
           </svg>
         </div>
+      </span>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Away
+        </span>
       </span>
     </div>
   </div>

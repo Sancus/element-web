@@ -55,6 +55,15 @@ exports[`<BeaconListItem /> when a beacon is live and has locations renders beac
             </svg>
           </a>
           <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-1"
+            >
+              Open in OpenStreetMap
+            </span>
+          </span>
+          <span
             class="mx_CopyableText mx_ShareLatestLocation_copy"
           >
             <button
@@ -85,6 +94,15 @@ exports[`<BeaconListItem /> when a beacon is live and has locations renders beac
                 </svg>
               </div>
             </button>
+            <span
+              style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+            >
+              <span
+                id="react-use-id-2"
+              >
+                Copy
+              </span>
+            </span>
           </span>
         </div>
       </div>

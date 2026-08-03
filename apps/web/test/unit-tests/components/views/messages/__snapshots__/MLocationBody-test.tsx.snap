@@ -66,6 +66,15 @@ exports[`MLocationBody <MLocationBody> without error renders map correctly 1`] =
         </span>
       </div>
     </div>
+    <span
+      style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+    >
+      <span
+        id="react-use-id-1"
+      >
+        Expand map
+      </span>
+    </span>
   </div>
 </DocumentFragment>
 `;
@@ -107,6 +116,15 @@ exports[`MLocationBody <MLocationBody> without error renders marker correctly fo
         </span>
       </div>
     </div>
+    <span
+      style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+    >
+      <span
+        id="react-use-id-1"
+      >
+        Expand map
+      </span>
+    </span>
   </div>
 </DocumentFragment>
 `;

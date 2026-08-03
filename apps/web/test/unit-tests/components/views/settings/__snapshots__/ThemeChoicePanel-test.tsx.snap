@@ -265,6 +265,15 @@ exports[`<ThemeChoicePanel /> custom theme should display custom theme 1`] = `
                 </svg>
               </div>
             </button>
+            <span
+              style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+            >
+              <span
+                id="react-use-id-8"
+              >
+                Delete
+              </span>
+            </span>
           </li>
         </ul>
       </div>
@@ -544,6 +553,15 @@ exports[`<ThemeChoicePanel /> custom theme should render the custom theme sectio
                 </svg>
               </div>
             </button>
+            <span
+              style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+            >
+              <span
+                id="react-use-id-8"
+              >
+                Delete
+              </span>
+            </span>
           </li>
         </ul>
       </div>

@@ -30,6 +30,15 @@ exports[`<PinnedEventTile /> should render pinned event 1`] = `
         >
           @alice:server.org
         </span>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-1"
+          >
+            @alice:server.org
+          </span>
+        </span>
         <button
           aria-describedby="react-use-id-2"
           aria-disabled="false"
@@ -108,6 +117,15 @@ exports[`<PinnedEventTile /> should render pinned event with thread info 1`] = `
           class="mx_PinnedEventTile_sender mx_Username_color2"
         >
           @alice:server.org
+        </span>
+        <span
+          style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+        >
+          <span
+            id="react-use-id-1"
+          >
+            @alice:server.org
+          </span>
         </span>
         <button
           aria-describedby="react-use-id-2"

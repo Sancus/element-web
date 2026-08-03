@@ -29,6 +29,15 @@ exports[`PlayPauseButton > renders the button in default state 1`] = `
       </svg>
     </div>
   </button>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Play
+    </span>
+  </span>
 </div>
 `;
 
@@ -61,6 +70,15 @@ exports[`PlayPauseButton > renders the button in disabled state 1`] = `
       </svg>
     </div>
   </button>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Play
+    </span>
+  </span>
 </div>
 `;
 
@@ -93,5 +111,14 @@ exports[`PlayPauseButton > renders the button in playing state 1`] = `
       </svg>
     </div>
   </button>
+  <span
+    style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+  >
+    <span
+      id="react-use-id-1"
+    >
+      Pause
+    </span>
+  </span>
 </div>
 `;

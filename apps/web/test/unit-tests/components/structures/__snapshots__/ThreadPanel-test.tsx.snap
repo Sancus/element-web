@@ -23,6 +23,15 @@ exports[`ThreadPanel Header expect that All filter for ThreadPanelHeader properl
         />
       </div>
     </button>
+    <span
+      style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+    >
+      <span
+        id="react-use-id-1"
+      >
+        Mark all as read
+      </span>
+    </span>
     <div
       class="mx_ThreadPanel_vertical_separator"
     />
@@ -73,6 +82,15 @@ exports[`ThreadPanel Header expect that My filter for ThreadPanelHeader properly
         />
       </div>
     </button>
+    <span
+      style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+    >
+      <span
+        id="react-use-id-1"
+      >
+        Mark all as read
+      </span>
+    </span>
     <div
       class="mx_ThreadPanel_vertical_separator"
     />

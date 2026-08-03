@@ -295,6 +295,15 @@ exports[`<ChangeRecoveryKey /> flow to set up a recovery key should ask the user
               />
             </svg>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-3"
+            >
+              Show
+            </span>
+          </span>
         </div>
       </div>
       <div
@@ -461,6 +470,15 @@ exports[`<ChangeRecoveryKey /> flow to set up a recovery key should ask the user
               />
             </svg>
           </button>
+          <span
+            style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+          >
+            <span
+              id="react-use-id-4"
+            >
+              Show
+            </span>
+          </span>
         </div>
         <span
           class="_message_1o4d9_86 _error-message_1o4d9_96"

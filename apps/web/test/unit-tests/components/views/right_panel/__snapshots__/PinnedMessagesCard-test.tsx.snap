@@ -45,6 +45,15 @@ exports[`<PinnedMessagesCard /> should show the empty state when there are no pi
           </svg>
         </div>
       </button>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Close
+        </span>
+      </span>
     </div>
     <div
       class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar"
@@ -128,6 +137,15 @@ exports[`<PinnedMessagesCard /> should show two pinned messages 1`] = `
           </svg>
         </div>
       </button>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Close
+        </span>
+      </span>
     </div>
     <div
       class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar"
@@ -165,6 +183,15 @@ exports[`<PinnedMessagesCard /> should show two pinned messages 1`] = `
                 class="mx_PinnedEventTile_sender mx_Username_color3"
               >
                 @alice:example.org
+              </span>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-2"
+                >
+                  @alice:example.org
+                </span>
               </span>
               <button
                 aria-describedby="react-use-id-3"
@@ -246,6 +273,15 @@ exports[`<PinnedMessagesCard /> should show two pinned messages 1`] = `
                 class="mx_PinnedEventTile_sender mx_Username_color3"
               >
                 @alice:example.org
+              </span>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-5"
+                >
+                  @alice:example.org
+                </span>
               </span>
               <button
                 aria-describedby="react-use-id-6"
@@ -357,6 +393,15 @@ exports[`<PinnedMessagesCard /> unpin all should not allow to unpinall 1`] = `
           </svg>
         </div>
       </button>
+      <span
+        style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+      >
+        <span
+          id="react-use-id-1"
+        >
+          Close
+        </span>
+      </span>
     </div>
     <div
       class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar"
@@ -394,6 +439,15 @@ exports[`<PinnedMessagesCard /> unpin all should not allow to unpinall 1`] = `
                 class="mx_PinnedEventTile_sender mx_Username_color3"
               >
                 @alice:example.org
+              </span>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-2"
+                >
+                  @alice:example.org
+                </span>
               </span>
               <button
                 aria-describedby="react-use-id-3"
@@ -475,6 +529,15 @@ exports[`<PinnedMessagesCard /> unpin all should not allow to unpinall 1`] = `
                 class="mx_PinnedEventTile_sender mx_Username_color3"
               >
                 @alice:example.org
+              </span>
+              <span
+                style="position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;"
+              >
+                <span
+                  id="react-use-id-5"
+                >
+                  @alice:example.org
+                </span>
               </span>
               <button
                 aria-describedby="react-use-id-6"
