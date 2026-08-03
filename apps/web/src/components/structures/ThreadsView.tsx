@@ -113,7 +113,10 @@ export function ThreadsView(): JSX.Element {
     // shrinks under the viewport, which moves the scroll offset without the user touching it.
     useEffect(() => {
         advance();
-    }, [advance, ordered.length, renderCount]);
+        // Collapsing is included because an expanded card is the tallest thing in the feed, so
+        // collapsing one shrinks the content most, and otherwise this would be relying on the
+        // browser to fire a scroll event when it clamps the offset it has invalidated.
+    }, [advance, ordered.length, renderCount, expandedThreadId]);
 
     const onToggleExpanded = useCallback((threadId: string) => {
         setExpandedThreadId((current) => (current === threadId ? null : threadId));
