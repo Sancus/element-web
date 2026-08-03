@@ -7,12 +7,20 @@
 
 import React from "react";
 import { act, render, screen } from "jest-matrix-react";
-import { type MatrixClient, type MatrixEvent, PendingEventOrdering, Room, type Thread } from "matrix-js-sdk/src/matrix";
+import {
+    EventStatus,
+    type MatrixClient,
+    type MatrixEvent,
+    PendingEventOrdering,
+    Room,
+    type Thread,
+    THREAD_RELATION_TYPE,
+} from "matrix-js-sdk/src/matrix";
 
 import MatrixClientContext from "../../../../../src/contexts/MatrixClientContext";
 import { SDKContext } from "../../../../../src/contexts/SDKContext";
 import { SDKContextClass } from "../../../../../src/contexts/SDKContextClass";
-import { mkReaction, stubClient } from "../../../../test-utils";
+import { mkMessage, mkReaction, stubClient } from "../../../../test-utils";
 import { populateThread } from "../../../../test-utils/threads";
 import { ThreadCard } from "../../../../../src/components/views/threads/ThreadCard";
 import { type ThreadFeedEntry } from "../../../../../src/viewmodels/threads/threadsFeed";
@@ -255,6 +263,33 @@ describe("ThreadCard", () => {
         renderCards([{ entry: a.entry, expanded: false }]);
 
         expect(screen.queryByText(/lurker/)).toBeNull();
+    });
+
+    it("renders a reply that is still being sent", async () => {
+        const a = await makeEntry("!a:example.org");
+        const room = client.getRoom("!a:example.org")!;
+
+        // Element uses detached pending-event ordering, so a local echo lives in the room's pending
+        // list, never in the thread timeline. A card that only reads the timeline shows nothing at
+        // all when you send — including when the send fails.
+        const pending = mkMessage({
+            room: room.roomId,
+            user: ME,
+            msg: "still sending",
+            event: true,
+            relatesTo: { rel_type: THREAD_RELATION_TYPE.name, event_id: a.thread.id },
+        });
+        pending.setStatus(EventStatus.SENDING);
+        jest.spyOn(a.thread.timelineSet, "getPendingEvents").mockReturnValue([pending]);
+        jest.spyOn(room, "eventShouldLiveIn").mockReturnValue({
+            shouldLiveInRoom: false,
+            shouldLiveInThread: true,
+            threadId: a.thread.id,
+        });
+
+        renderCards([{ entry: a.entry, expanded: true }]);
+
+        expect(screen.getByTestId(`tile-${pending.getId()}`)).toBeInTheDocument();
     });
 
     it("gives the composer an upload context only while expanded", async () => {

@@ -73,26 +73,44 @@ export interface ThreadsFeedState {
  * thread in every room several times a second, which on a large account is enough main-thread
  * work to be felt.
  */
-export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
+export function useThreadsFeed(filter: ThreadsFeedFilter, keepThreadId?: string | null): ThreadsFeedState {
     const client = useMatrixClientContext();
     const msc3946ProcessDynamicPredecessor = useSettingValue("feature_dynamic_room_predecessors");
 
     const [allEntries, setAllEntries] = useState<ThreadFeedEntry[]>([]);
-    const [backfilledCount, setBackfilledCount] = useState(0);
     const [backfilling, setBackfilling] = useState(false);
     const [pendingRetries, setPendingRetries] = useState(0);
     /** False until the first scan of in-memory threads has run, so the page can hold its empty state. */
     const [initialised, setInitialised] = useState(false);
+    /**
+     * Rooms already searched for threads. Progress is tracked as a set rather than an index into
+     * the room list, because that list is rebuilt whenever rooms are joined, left, or upgraded:
+     * an index into the old list would silently point somewhere else in the new one.
+     */
+    const [searchedRooms, setSearchedRooms] = useState<ReadonlySet<string>>(new Set());
+    /**
+     * The backfill queue, most recently active room first. Held in state and replaced only when the
+     * rooms in it actually change: rebuilding it sorts the whole account, which is not something to
+     * do on every render, and a queue derived from the client alone would never notice a join or a
+     * leave. Reordering between passes is harmless because progress is a set of room IDs.
+     */
+    const [feedRooms, setFeedRooms] = useState<Room[]>([]);
 
-    // Rooms are ordered once per room list so that backfill progress stays stable while the
-    // user scrolls, rather than being reshuffled by incoming activity.
-    const feedRooms = useMemo(
-        () => orderRoomsForBackfill(getFeedRooms(client, msc3946ProcessDynamicPredecessor)),
-        [client, msc3946ProcessDynamicPredecessor],
+    /** Feed rooms not yet searched, in the order they should be searched. */
+    const unsearchedRooms = useMemo(
+        () => feedRooms.filter((room) => !searchedRooms.has(room.roomId)),
+        [feedRooms, searchedRooms],
     );
 
     const entriesByRoom = useRef(new Map<string, ThreadFeedEntry[]>());
     const dirtyRooms = useRef(new Set<string>());
+    /**
+     * IDs of the rooms in the most recent full scan. `getVisibleRooms()` hides a room that has
+     * been upgraded, which it can only determine by looking at every room's predecessors, so a
+     * per-room predicate cannot reproduce it — without this, an event in an upgraded room would
+     * put it back into the feed on the next dirty rescan.
+     */
+    const visibleRoomIds = useRef<ReadonlySet<string>>(new Set());
 
     const publish = useCallback(() => {
         setAllEntries(sortEntries([...entriesByRoom.current.values()].flat()));
@@ -116,9 +134,17 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
         // Rebuilt from scratch rather than merged, so rooms that have been left or hidden drop out.
         entriesByRoom.current = new Map();
         dirtyRooms.current.clear();
-        scanRooms(getFeedRooms(client, msc3946ProcessDynamicPredecessor));
+
+        const rooms = getFeedRooms(client, msc3946ProcessDynamicPredecessor);
+        const roomIds = new Set(rooms.map((room) => room.roomId));
+        const changed =
+            roomIds.size !== visibleRoomIds.current.size || [...roomIds].some((id) => !visibleRoomIds.current.has(id));
+        visibleRoomIds.current = roomIds;
+
+        scanRooms(rooms);
         publish();
         setInitialised(true);
+        if (changed) setFeedRooms(orderRoomsForBackfill(rooms));
     }, [client, msc3946ProcessDynamicPredecessor, scanRooms, publish]);
 
     const rescanDirty = useCallback(() => {
@@ -127,7 +153,10 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
         const rooms: Room[] = [];
         for (const roomId of dirtyRooms.current) {
             const room = client.getRoom(roomId);
-            if (room && isFeedRoom(room)) rooms.push(room);
+            // Checked against the last full scan as well as the per-room predicate, because room
+            // visibility is not a per-room property: an upgraded room is hidden only by virtue of
+            // its successor existing.
+            if (room && isFeedRoom(room) && visibleRoomIds.current.has(roomId)) rooms.push(room);
             else entriesByRoom.current.delete(roomId);
         }
         dirtyRooms.current.clear();
@@ -177,6 +206,10 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
     // which is re-emitted, so this still reacts to new replies.
     useEventEmitter(client, RoomEvent.Timeline, (_event: MatrixEvent, room?: Room) => markDirty(room?.roomId));
     useEventEmitter(client, RoomEvent.Receipt, (_event: MatrixEvent, room?: Room) => markDirty(room?.roomId));
+    // Sending from a card produces a local echo, which with detached pending ordering never enters
+    // the thread's timeline and so raises no `RoomEvent.Timeline`. Without this the feed does not
+    // react to the user's own send at all, including its failure.
+    useEventEmitter(client, RoomEvent.LocalEchoUpdated, (_event: MatrixEvent, room?: Room) => markDirty(room?.roomId));
     useEventEmitter(client, MatrixEventEvent.Decrypted, (event: MatrixEvent) => markDirty(event.getRoomId()));
     // Sync names no room, and is the only signal for the room list itself changing, so it drives
     // the whole-account pass instead of a per-room one.
@@ -189,13 +222,10 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
     const canBackfill = Boolean(Thread.hasServerSideListSupport) && client.supportsThreads();
 
     const inFlight = useRef(false);
-    const cursor = useRef(0);
     const cancelled = useRef(false);
     /** Rooms whose fetch failed, retried once before the pass moves on. */
     const retryRooms = useRef<Room[]>([]);
     const retried = useRef(new Set<string>());
-    /** Bumped when the room list is replaced, to disown a pass started against the old one. */
-    const generation = useRef(0);
     const started = useRef(false);
 
     useEffect(() => {
@@ -205,18 +235,6 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
         };
     }, []);
 
-    // Declared before the effect that starts the first pass, so a new room list resets progress
-    // before that pass is restarted against it.
-    useEffect(() => {
-        generation.current += 1;
-        cursor.current = 0;
-        retryRooms.current = [];
-        retried.current.clear();
-        started.current = false;
-        setBackfilledCount(0);
-        setPendingRetries(0);
-    }, [feedRooms]);
-
     const runBackfill = useCallback(
         async (limit: number): Promise<void> => {
             if (!canBackfill || inFlight.current) return;
@@ -225,11 +243,10 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
             // transient error does not drop a room's threads from the feed permanently.
             const retries = retryRooms.current;
             retryRooms.current = [];
-            const fresh = feedRooms.slice(cursor.current, cursor.current + limit);
+            const fresh = unsearchedRooms.slice(0, limit);
             const batch = [...retries, ...fresh];
             if (batch.length === 0) return;
 
-            const startedGeneration = generation.current;
             inFlight.current = true;
             setBackfilling(true);
             try {
@@ -251,37 +268,40 @@ export function useThreadsFeed(filter: ThreadsFeedFilter): ThreadsFeedState {
                 });
             } finally {
                 inFlight.current = false;
-                // A pass against a superseded room list must not advance the new cursor, but still
-                // has to stop the spinner it started.
-                if (generation.current === startedGeneration) cursor.current += fresh.length;
                 if (!cancelled.current) {
-                    setBackfilledCount(cursor.current);
+                    // Recorded even for rooms that failed twice, so a room erroring persistently
+                    // cannot hold up the queue. Retries are tracked separately.
+                    setSearchedRooms((searched) => {
+                        const next = new Set(searched);
+                        for (const room of fresh) next.add(room.roomId);
+                        return next;
+                    });
                     setPendingRetries(retryRooms.current.length);
                     setBackfilling(false);
                     rescanDirty();
                 }
             }
         },
-        [canBackfill, feedRooms, markDirty, rescanDirty],
+        [canBackfill, unsearchedRooms, markDirty, rescanDirty],
     );
 
     useEffect(() => {
         if (started.current) return;
         // `Thread.hasServerSideListSupport` is set from server capabilities fetched asynchronously
         // at startup, so a page mounted from a deep link can render before it is known. Claiming
-        // the one-shot start while it is still false would leave the first pass never run; leaving
-        // it unclaimed means the next sync-driven render picks it up once support is known.
-        if (!canBackfill) return;
+        // the one-shot start before there is anything to search would leave the first pass never
+        // run; leaving it unclaimed means a later render picks it up.
+        if (!canBackfill || unsearchedRooms.length === 0) return;
         started.current = true;
         void runBackfill(INITIAL_BACKFILL_ROOMS);
-    }, [canBackfill, runBackfill]);
+    }, [canBackfill, unsearchedRooms.length, runBackfill]);
 
     const loadMore = useCallback(() => {
         void runBackfill(BACKFILL_BATCH_ROOMS);
     }, [runBackfill]);
 
-    const entries = useMemo(() => filterEntries(allEntries, filter), [allEntries, filter]);
-    const hasMore = canBackfill && (backfilledCount < feedRooms.length || pendingRetries > 0);
+    const entries = useMemo(() => filterEntries(allEntries, filter, keepThreadId), [allEntries, filter, keepThreadId]);
+    const hasMore = canBackfill && (unsearchedRooms.length > 0 || pendingRetries > 0);
 
     return {
         entries,
