@@ -327,6 +327,9 @@ jobs:
                   path: dist
                   merge-multiple: true
 
+            # The notes are written with a quoted heredoc so backticks and quotes survive, then the
+            # tag is substituted in: the screenshot is fetched from the tag rather than a branch, so
+            # a release keeps showing the layout it shipped with.
             - name: Publish
               env:
                   GH_TOKEN: ${{ github.token }}
@@ -334,14 +337,15 @@ jobs:
               run: |
                   set -euo pipefail
                   ls -la dist
-                  gh release create "$TAG" dist/* \
-                    --repo "$GITHUB_REPOSITORY" \
-                    --title "Room list fixes - $TAG" \
-                    --notes 'Unofficial build of Element Desktop with the room list scroll fix and these room list options:
+                  cat > notes.md <<'NOTES'
+                  Unofficial build of Element Desktop with the room list scroll fix and these room list options:
 
-                  - **Per-section sorting** each section'"'"'s menu can pin Latest activity / Unread first / A-Z, or follow the list-wide order.
-                  - **High density** compact single-line rows, from the room list three-dot menu.
-                  - **People section** a section that automatically collects your direct messages, from the same menu.
+                  - **Scroll performance** the room list no longer drops frames on long lists; each row used to keep several closed tooltips running position-tracking loops.
+                  - **Compact layout** a 32px row with a 26px avatar, roughly 60% more rooms on screen. Message previews cannot fit, so they are off while it is on. Room list three-dot menu.
+                  - **People section** collects the direct messages that no other section claims, and takes rooms you move into it by hand. Same menu, "Show People section".
+                  - **Per-section sorting** each section's menu can pin Latest activity / Unread first / A-Z, or follow the list-wide order.
+
+                  ![Default and compact room list side by side](https://raw.githubusercontent.com/__REPO__/__TAG__/.github/release-assets/compact-layout.png)
 
                   Encrypted-room search works in these builds: matrix-seshat is compiled in, unlike the earlier roomlist-fix releases.
 
@@ -351,4 +355,10 @@ jobs:
                   - **macOS** Gatekeeper will refuse to open it. Clear the quarantine flag with `xattr -dr com.apple.quarantine /Applications/Element.app`.
                   - **Linux** no signature to check.
 
-                  Auto-update is disabled, so these will never replace themselves with official Element. Run with `--profile roomlist-fix` to keep the data directory separate from an existing Element install.'
+                  Auto-update is disabled, so these will never replace themselves with official Element. Run with `--profile roomlist-fix` to keep the data directory separate from an existing Element install.
+                  NOTES
+                  sed -i "s|__TAG__|$TAG|g; s|__REPO__|$GITHUB_REPOSITORY|g" notes.md
+                  gh release create "$TAG" dist/* \
+                    --repo "$GITHUB_REPOSITORY" \
+                    --title "Room list fixes - $TAG" \
+                    --notes-file notes.md
