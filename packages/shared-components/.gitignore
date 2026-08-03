@@ -12,3 +12,5 @@
 typedoc
 # Build storybook
 storybook-static
+# Builds of the perf storybook, one per variant being compared
+storybook-perf-*
