@@ -12,7 +12,7 @@ import { Heading } from "@vector-im/compound-web";
 
 import { _t } from "../../languageHandler";
 import { SDKContext } from "../../contexts/SDKContext";
-import { ThreadsFeedFilter } from "../../viewmodels/threads/threadsFeed";
+import { applyHeldOrder, ThreadsFeedFilter } from "../../viewmodels/threads/threadsFeed";
 import { useThreadsFeed } from "../../viewmodels/threads/useThreadsFeed";
 import { ThreadCard } from "../views/threads/ThreadCard";
 import { ThreadsViewFilterMenu } from "../views/threads/ThreadsViewFilterMenu";
@@ -23,6 +23,8 @@ import Spinner from "../views/elements/Spinner";
 const RENDER_BATCH = 20;
 /** Distance from the bottom, in pixels, at which the next batch is rendered. */
 const SCROLL_THRESHOLD_PX = 600;
+/** Scroll offset, in pixels, still counted as being at the top of the feed. */
+const AT_TOP_THRESHOLD_PX = 8;
 
 /**
  * A cross-room feed of threads the user takes part in.
@@ -43,25 +45,37 @@ export function ThreadsView(): JSX.Element {
     // "Unread", and a card that deletes itself as it is read takes the composer with it.
     const { entries, backfilling, hasMore, loadMore, initialised } = useThreadsFeed(filter, expandedThreadId);
 
-    // Changing filter re-windows the feed from the top.
+    /** Whether the feed is scrolled to the top, where re-sorting is safe to show. */
+    const [atTop, setAtTop] = useState(true);
+
+    const order = useRef<string[]>([]);
+    const scrollRef = useRef<HTMLDivElement | null>(null);
+
+    // Changing filter re-windows the feed from the top, and is an explicit request for a different
+    // list, so it also releases the held order below rather than ranking a new set of threads
+    // against the order of the old one.
     useEffect(() => {
         setRenderCount(RENDER_BATCH);
+        order.current = [];
+        setAtTop(true);
+        scrollRef.current?.scrollTo({ top: 0 });
     }, [filter]);
 
-    // The feed is sorted by latest activity, so a new reply anywhere would otherwise be able to
-    // move an expanded card — and the composer the user is typing in — out from under the cursor.
-    // While a card is expanded the previous order is held, and newly arrived threads wait at the
-    // end until it collapses.
-    const order = useRef<string[]>([]);
+    // The feed is sorted by latest activity, so a reply arriving anywhere in the account can move
+    // cards. That is only acceptable while the user is at the top and can see it happen: further
+    // down, it moves whatever they are reading out from under them, and if a card is expanded it
+    // takes the composer they are typing in with it. In either case the previous order is held and
+    // newly arrived threads wait at the end, until the feed is scrolled back to the top with
+    // nothing expanded — which is also when a thread jumping to the top reads as new activity
+    // rather than as the page shuffling itself.
+    const frozen = expandedThreadId !== null || !atTop;
     const ordered = useMemo(() => {
-        if (expandedThreadId === null) {
+        if (!frozen) {
             order.current = entries.map((entry) => entry.threadId);
             return entries;
         }
-        const rank = new Map(order.current.map((threadId, index) => [threadId, index]));
-        const rankOf = (threadId: string): number => rank.get(threadId) ?? Number.MAX_SAFE_INTEGER;
-        return [...entries].sort((a, b) => rankOf(a.threadId) - rankOf(b.threadId));
-    }, [entries, expandedThreadId]);
+        return applyHeldOrder(entries, order.current);
+    }, [entries, frozen]);
 
     const visible = useMemo(() => ordered.slice(0, renderCount), [ordered, renderCount]);
     const canRenderMore = renderCount < ordered.length;
@@ -69,11 +83,11 @@ export function ThreadsView(): JSX.Element {
     /** Whether anything could still arrive: the first scan, or rooms left to search. */
     const searching = !initialised || backfilling || hasMore;
 
-    const scrollRef = useRef<HTMLDivElement | null>(null);
-
     const onScroll = useCallback(() => {
         const el = scrollRef.current;
         if (!el) return;
+        setAtTop(el.scrollTop <= AT_TOP_THRESHOLD_PX);
+
         const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
         if (remaining > SCROLL_THRESHOLD_PX) return;
 

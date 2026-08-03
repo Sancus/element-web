@@ -12,6 +12,7 @@ import { populateThread } from "../../../test-utils/threads";
 import { NotificationLevel } from "../../../../src/stores/notifications/NotificationLevel";
 import * as RoomNotifs from "../../../../src/RoomNotifs";
 import {
+    applyHeldOrder,
     collectRoomEntries,
     filterEntries,
     hasParticipated,
@@ -239,6 +240,48 @@ describe("threadsFeed", () => {
             sortEntries(entries);
 
             expect(entries.map((e) => e.latestTs)).toEqual([100, 300]);
+        });
+    });
+
+    describe("applyHeldOrder", () => {
+        const entriesFor = (threadIds: string[]): ThreadFeedEntry[] =>
+            threadIds.map((threadId) => ({ threadId }) as ThreadFeedEntry);
+
+        it("keeps the held order even when activity has resorted the entries", () => {
+            // "c" has just received a reply, so the feed now sorts it first.
+            const resorted = entriesFor(["c", "a", "b"]);
+
+            expect(applyHeldOrder(resorted, ["a", "b", "c"]).map((e) => e.threadId)).toEqual(["a", "b", "c"]);
+        });
+
+        it("puts threads missing from the held order at the end", () => {
+            // A thread that did not exist when the order was taken must not appear mid-list, where
+            // it would push everything below it down past whatever the user is reading.
+            const withNew = entriesFor(["new", "a", "b"]);
+
+            expect(applyHeldOrder(withNew, ["a", "b"]).map((e) => e.threadId)).toEqual(["a", "b", "new"]);
+        });
+
+        it("keeps new threads in their own sorted order at the end", () => {
+            const withNew = entriesFor(["newer", "older", "a"]);
+
+            expect(applyHeldOrder(withNew, ["a"]).map((e) => e.threadId)).toEqual(["a", "newer", "older"]);
+        });
+
+        it("drops held threads that are no longer present", () => {
+            expect(applyHeldOrder(entriesFor(["a", "c"]), ["a", "b", "c"]).map((e) => e.threadId)).toEqual(["a", "c"]);
+        });
+
+        it("falls back to the entries' own order when nothing is held", () => {
+            expect(applyHeldOrder(entriesFor(["a", "b"]), []).map((e) => e.threadId)).toEqual(["a", "b"]);
+        });
+
+        it("does not mutate its input", () => {
+            const entries = entriesFor(["c", "a"]);
+
+            applyHeldOrder(entries, ["a", "c"]);
+
+            expect(entries.map((e) => e.threadId)).toEqual(["c", "a"]);
         });
     });
 
