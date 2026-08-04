@@ -117,7 +117,7 @@ it as a user-created custom section.
 
 ## Desktop release workflow
 
-`.github/workflows/roomlist-fix-desktop.yml` is self-contained and intentionally separate
+`.github/workflows/desktop-builds.yml` is self-contained and intentionally separate
 from Element's upstream desktop workflows, which check out the upstream repository and rely
 on upstream signing infrastructure.
 
