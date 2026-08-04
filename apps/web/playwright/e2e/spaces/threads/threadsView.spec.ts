@@ -120,11 +120,11 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await util.expandThreadCard("Msg3");
         await util.expandThreadCard("Msg2");
 
-        await expect(util.getThreadCard("Msg2").getByRole("button", { name: "Collapse thread" })).toBeVisible();
-        // Msg3 is asserted still present as well as collapsed: a missing card would satisfy the
-        // absence of its collapse button just as well, and the test would then be lying.
+        await expect(util.getCardComposer(util.getThreadCard("Msg2"))).toBeVisible();
+        // Msg3 is asserted still present as well as closed: a missing card would satisfy the
+        // absence of its composer just as well, and the test would then be lying.
         await expect(util.getThreadCard("Msg3")).toBeVisible();
-        await expect(util.getThreadCard("Msg3").getByRole("button", { name: "Collapse thread" })).toHaveCount(0);
+        await expect(util.getCardComposer(util.getThreadCard("Msg3"))).toHaveCount(0);
     });
 
     test("should expand a thread from the hidden reply count", async ({ room1, util, msg }) => {
@@ -247,10 +247,9 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await util.expandThreadCard("Msg1");
 
         const card = util.getThreadCard("Msg1");
-        await expect(card.getByRole("button", { name: "Collapse thread" })).toBeVisible();
         await expect(util.getCardComposer(card)).toBeVisible();
-        // Still gone once collapsed, since it is genuinely read by then.
-        await card.getByRole("button", { name: "Collapse thread" }).click();
+        // Still gone once closed, since it is genuinely read by then.
+        await card.press("Escape");
         await expect(util.getThreadCard("Msg1")).not.toBeVisible();
     });
 
@@ -304,6 +303,87 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await expect(util.getCardComposer(card)).toBeVisible();
         await expect(card.getByRole("button", { name: /^Show \d+ more repl/ })).toBeVisible();
         await expect(card).not.toContainText("Reply1");
+    });
+
+    test("should not offer to collapse a thread that is not unfolded", async ({ room1, util, msg }) => {
+        await util.goTo(room1);
+        await util.receiveMessages(room1, [
+            "Msg1",
+            msg.threadedOff("Msg1", "Reply1"),
+            msg.threadedOff("Msg1", "Reply2"),
+            msg.threadedOff("Msg1", "Reply3"),
+        ]);
+        await util.sendMessages(room1, [msg.threadedOff("Msg1", "Mine")]);
+
+        await util.openThreadsPage();
+        const card = util.getThreadCard("Msg1");
+        await card.getByRole("button", { name: "Reply…" }).click();
+        await expect(util.getCardComposer(card)).toBeVisible();
+
+        // Nothing is unfolded, so there is nothing for a collapse control to act on and offering
+        // one describes a state the card is not in.
+        await expect(card.getByRole("button", { name: "Collapse thread" })).toHaveCount(0);
+
+        await card.getByRole("button", { name: /^Show \d+ more repl/ }).click();
+        await expect(card.getByRole("button", { name: "Collapse thread" })).toBeVisible();
+    });
+
+    test("should put an untouched composer away when the user clicks elsewhere", async ({ room1, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.populateThreads(room1, room1, msg, user);
+
+        await util.openThreadsPage();
+        const card = util.getThreadCard("Msg3");
+        await util.expandThreadCard("Msg3");
+
+        await util.getThreadsPage().getByRole("heading", { name: "Threads" }).click();
+
+        await expect(util.getCardComposer(card)).toHaveCount(0);
+        await expect(card.getByRole("button", { name: "Reply…" })).toBeVisible();
+    });
+
+    test("should keep a composer the user has written in", async ({ room1, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.populateThreads(room1, room1, msg, user);
+
+        await util.openThreadsPage();
+        const card = util.getThreadCard("Msg3");
+        await util.expandThreadCard("Msg3");
+        await util.getCardComposer(card).fill("Half a thought");
+
+        await util.getThreadsPage().getByRole("heading", { name: "Threads" }).click();
+
+        // A draft is work in progress, and clearing it away because the user looked elsewhere
+        // would read as having thrown it out.
+        await expect(util.getCardComposer(card)).toHaveText("Half a thought");
+    });
+
+    test("should not call an encrypted room's composer unencrypted", async ({ page, app, util, msg, bot }) => {
+        // The composer works its wording out from the encryption status it is handed, and a card
+        // that hands it nothing gets the unencrypted wording — under a broken padlock, in a room
+        // that is in fact encrypted.
+        const roomId = await app.client.createRoom({
+            name: "Encrypted Room",
+            invite: [bot.credentials!.userId],
+            initial_state: [
+                {
+                    type: "m.room.encryption",
+                    state_key: "",
+                    content: { algorithm: "m.megolm.v1.aes-sha2" },
+                },
+            ],
+        });
+        const room = { name: "Encrypted Room", roomId };
+        await util.goTo(room);
+        await util.sendMessages(room, ["Msg1"]);
+        await util.sendMessages(room, [msg.threadedOff("Msg1", "Mine")]);
+
+        await util.openThreadsPage();
+        const card = util.getThreadCard("Msg1");
+        await util.expandThreadCard("Msg1");
+
+        await expect(util.getCardComposer(card)).toHaveAttribute("aria-label", "Send a message…");
+        await expect(card.getByLabel("Messages in this room are not end-to-end encrypted")).toHaveCount(0);
     });
 
     test("should load a whole thread rather than asking for it a page at a time", async ({

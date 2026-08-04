@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import { act, render, screen } from "jest-matrix-react";
+import { act, fireEvent, render, screen } from "jest-matrix-react";
 import {
     EventStatus,
     type MatrixClient,
@@ -30,6 +30,8 @@ import { Action } from "../../../../../src/dispatcher/actions";
 import defaultDispatcher from "../../../../../src/dispatcher/dispatcher";
 import ResizeNotifier from "../../../../../src/utils/ResizeNotifier";
 import UserActivity from "../../../../../src/UserActivity";
+import * as ShieldUtils from "../../../../../src/utils/ShieldUtils";
+import { E2EStatus } from "../../../../../src/utils/ShieldUtils";
 import DMRoomMap from "../../../../../src/utils/DMRoomMap";
 
 // EventTile and MessageComposer are exercised by their own suites; stubbing them keeps this
@@ -43,8 +45,16 @@ jest.mock("../../../../../src/components/views/rooms/EventTile", () => ({
 
 jest.mock("../../../../../src/components/views/rooms/MessageComposer", () => ({
     __esModule: true,
-    default: ({ room, replyToEvent }: { room: Room; replyToEvent?: MatrixEvent }) => (
-        <div data-testid={`composer-${room.roomId}`} data-reply-to={replyToEvent?.getId() ?? ""} />
+    default: ({ room, replyToEvent, e2eStatus }: { room: Room; replyToEvent?: MatrixEvent; e2eStatus?: string }) => (
+        <div
+            data-testid={`composer-${room.roomId}`}
+            data-reply-to={replyToEvent?.getId() ?? ""}
+            data-e2e-status={e2eStatus ?? ""}
+        >
+            {/* The real composer marks its input empty to show its placeholder, and the card reads
+                that class to tell an abandoned composer from one with a draft in it. */}
+            <div className="mx_BasicMessageComposer_input mx_BasicMessageComposer_inputEmpty" />
+        </div>
     ),
 }));
 
@@ -497,6 +507,157 @@ describe("ThreadCard", () => {
             });
 
             expect(paginate).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe("composer encryption state", () => {
+        it("tells the composer the room is encrypted", async () => {
+            const a = await makeEntry("!a:example.org");
+            jest.spyOn(a.entry.room, "hasEncryptionStateEvent").mockReturnValue(true);
+            const shield = jest.spyOn(ShieldUtils, "shieldStatusForRoom").mockResolvedValue(E2EStatus.Verified);
+
+            render(
+                <Providers>
+                    <ThreadCard entry={a.entry} active={true} onSetActive={jest.fn()} resizeNotifier={resizeNotifier} />
+                </Providers>,
+            );
+
+            // Encrypted from the first frame: waiting for the shield would mean offering to send an
+            // unencrypted message in the meantime, which is the bug this replaces.
+            expect(screen.getByTestId(`composer-${a.entry.room.roomId}`)).toHaveAttribute(
+                "data-e2e-status",
+                E2EStatus.Normal,
+            );
+
+            await act(async () => {
+                await shield.mock.results[0].value;
+            });
+
+            expect(screen.getByTestId(`composer-${a.entry.room.roomId}`)).toHaveAttribute(
+                "data-e2e-status",
+                E2EStatus.Verified,
+            );
+        });
+
+        it("leaves the composer unencrypted in an unencrypted room", async () => {
+            const a = await makeEntry("!a:example.org");
+            jest.spyOn(a.entry.room, "hasEncryptionStateEvent").mockReturnValue(false);
+            const shield = jest.spyOn(ShieldUtils, "shieldStatusForRoom");
+
+            render(
+                <Providers>
+                    <ThreadCard entry={a.entry} active={true} onSetActive={jest.fn()} resizeNotifier={resizeNotifier} />
+                </Providers>,
+            );
+
+            expect(screen.getByTestId(`composer-${a.entry.room.roomId}`)).toHaveAttribute("data-e2e-status", "");
+            expect(shield).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("dismissing the composer", () => {
+        it("offers to collapse the thread only once the replies are unfolded", async () => {
+            const a = await makeEntry("!a:example.org", 8);
+
+            render(
+                <Providers>
+                    <ThreadCard entry={a.entry} active={true} onSetActive={jest.fn()} resizeNotifier={resizeNotifier} />
+                </Providers>,
+            );
+
+            // The composer is open, but nothing is unfolded for a collapse to act on.
+            expect(screen.queryByRole("button", { name: "Collapse thread" })).not.toBeInTheDocument();
+
+            await act(async () => {
+                screen.getByRole("button", { name: /more repl/ }).click();
+            });
+
+            expect(screen.getByRole("button", { name: "Collapse thread" })).toBeInTheDocument();
+        });
+
+        it("puts an untouched composer away when the user clicks elsewhere", async () => {
+            const a = await makeEntry("!a:example.org");
+            const onSetActive = jest.fn();
+
+            render(
+                <Providers>
+                    <ThreadCard
+                        entry={a.entry}
+                        active={true}
+                        onSetActive={onSetActive}
+                        resizeNotifier={resizeNotifier}
+                    />
+                </Providers>,
+            );
+
+            await act(async () => {
+                fireEvent.pointerDown(document.body);
+            });
+
+            expect(onSetActive).toHaveBeenCalledWith(null);
+        });
+
+        it("keeps a composer the user has written in", async () => {
+            const a = await makeEntry("!a:example.org");
+            const onSetActive = jest.fn();
+
+            const { container } = render(
+                <Providers>
+                    <ThreadCard
+                        entry={a.entry}
+                        active={true}
+                        onSetActive={onSetActive}
+                        resizeNotifier={resizeNotifier}
+                    />
+                </Providers>,
+            );
+
+            // What the composer does to itself as soon as anything is typed into it.
+            container
+                .querySelector(".mx_BasicMessageComposer_input")!
+                .classList.remove("mx_BasicMessageComposer_inputEmpty");
+
+            await act(async () => {
+                fireEvent.pointerDown(document.body);
+            });
+
+            expect(onSetActive).not.toHaveBeenCalled();
+        });
+
+        it("stays open for clicks inside the card and in the menus it opens", async () => {
+            const a = await makeEntry("!a:example.org");
+            const onSetActive = jest.fn();
+
+            const { container } = render(
+                <Providers>
+                    <ThreadCard
+                        entry={a.entry}
+                        active={true}
+                        onSetActive={onSetActive}
+                        resizeNotifier={resizeNotifier}
+                    />
+                </Providers>,
+            );
+
+            await act(async () => {
+                fireEvent.pointerDown(container.querySelector(".mx_ThreadCard_body")!);
+            });
+            expect(onSetActive).not.toHaveBeenCalled();
+
+            // The emoji picker and the attachment menu are portalled out of the card, so hit-testing
+            // against the card alone would treat using one as walking away from the composer.
+            const portal = document.createElement("div");
+            portal.className = "mx_ContextualMenu_wrapper";
+            const inPortal = document.createElement("button");
+            portal.appendChild(inPortal);
+            document.body.appendChild(portal);
+
+            await act(async () => {
+                fireEvent.pointerDown(inPortal);
+            });
+            expect(onSetActive).not.toHaveBeenCalled();
+
+            portal.remove();
         });
     });
 
