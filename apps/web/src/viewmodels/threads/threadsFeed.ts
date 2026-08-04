@@ -5,14 +5,7 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import {
-    EventStatus,
-    type MatrixClient,
-    type MatrixEvent,
-    RelationType,
-    type Room,
-    type Thread,
-} from "matrix-js-sdk/src/matrix";
+import { EventStatus, type MatrixClient, type MatrixEvent, type Room, type Thread } from "matrix-js-sdk/src/matrix";
 
 import { NotificationLevel } from "../../stores/notifications/NotificationLevel";
 import { determineUnreadState } from "../../RoomNotifs";
@@ -67,32 +60,36 @@ export function hasParticipated(thread: Thread, userId: string): boolean {
 }
 
 /**
- * Whether the current user has replied in a thread.
+ * Whether the current user has answered a thread, by replying in it or reacting to it.
  *
- * Starting a thread is not replying in it: the point of knowing is to find threads still waiting
- * on the user, and a question they asked themselves is not one of them. A reply still in flight
- * counts, so a card does not claim to be unanswered while the answer is being sent; one that
- * failed to send does not.
+ * A reaction counts. It is a smaller answer than a reply, but it is still one: a 👍 on "can you
+ * take this?" is how people say yes, and a thread answered that way is not waiting on anyone.
+ * Holding out for a reply would leave the user with a list of things they have already dealt with
+ * and no way to clear them short of typing something.
+ *
+ * Starting a thread is not answering it: the point of knowing is to find threads still waiting
+ * on the user, and a question they asked themselves is not one of them. An answer still in flight
+ * counts, so a card does not claim to be unanswered while it is being sent; one that failed to
+ * send does not.
  *
  * The loaded timeline is checked before the server's `current_user_participated`, because that
- * flag cannot distinguish a reply from having started the thread. It is only trusted for threads
+ * flag cannot distinguish an answer from having started the thread. It is only trusted for threads
  * the user did not start, where it is the sole way to know about a reply in history this client has
- * never loaded. The cost is that a thread the user started and answered long enough ago for the
- * answer to be unloaded reads as unanswered until the card is opened, which loads it. That is the
- * safer way round to be wrong: it over-reports what is waiting on the user rather than hiding it.
+ * never loaded. It knows nothing about reactions either way: Synapse counts only `m.thread`
+ * relations towards it, so a thread answered with a reaction long enough ago for the reaction to be
+ * unloaded reads as unanswered until the card is opened, which loads it. That is the safer way
+ * round to be wrong: it over-reports what is waiting on the user rather than hiding it.
  */
 export function hasReplied(thread: Thread, userId: string): boolean {
-    // A thread's timeline carries the reactions and edits aimed at it as well as its replies, so
-    // sending anything at all is not the test: reacting to a message is not answering it.
-    const isReplyFromUser = (event: MatrixEvent): boolean =>
-        event.getSender() === userId &&
-        event.getId() !== thread.id &&
-        event.isRelation(RelationType.Thread) &&
-        event.status !== EventStatus.NOT_SENT;
+    // Anything the user sent into the thread, rather than replies alone, so that reacting counts.
+    // The root is excluded because starting a thread is not answering it; an edit of a message the
+    // user sent is redundant rather than wrong, since sending it already counted.
+    const isAnswerFromUser = (event: MatrixEvent): boolean =>
+        event.getSender() === userId && event.getId() !== thread.id && event.status !== EventStatus.NOT_SENT;
 
-    if (thread.timeline.some(isReplyFromUser)) return true;
+    if (thread.timeline.some(isAnswerFromUser)) return true;
     // Local echoes with detached pending ordering never enter the timeline above.
-    if (thread.replyToEvent && isReplyFromUser(thread.replyToEvent)) return true;
+    if (thread.replyToEvent && isAnswerFromUser(thread.replyToEvent)) return true;
 
     // An unknown root is not somebody else's root: without this, a thread whose root has not been
     // loaded would take the flag at face value, which is the reading this exists to avoid.
