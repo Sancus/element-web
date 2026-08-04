@@ -163,6 +163,70 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await util.assertNoThreadsIndicator();
     });
 
+    test("should leave the room's own timeline unread when a thread is read", async ({
+        room1,
+        room2,
+        util,
+        msg,
+        page,
+        app,
+        user,
+    }) => {
+        // Everything below arrives while the user is looking at a different room, so both the
+        // thread and the room's own timeline are genuinely unread. Reading the thread must not
+        // touch the latter.
+        //
+        // The plain message goes first deliberately. A receipt is a position, not a flag, so one
+        // that lands anywhere in the main timeline marks everything before it read — and a receipt
+        // aimed at the thread would only be caught here if there is main-timeline traffic older
+        // than the thread for it to swallow.
+        await util.goTo(room2);
+        await util.receiveMessages(room1, ["Not in any thread"]);
+        await util.receiveThreadMentioningUser(room1, msg, user, "Msg1");
+
+        // Reloaded so the thread comes back from sync with only the reply bundled onto its root
+        // and an empty timeline of its own. That is the state the receipt bug needed, and it is
+        // the state a feed full of threads from rooms the user has not opened is always in.
+        await page.reload();
+        await expect(util.getThreadsNavButton()).toBeVisible();
+
+        await util.openThreadsPage();
+        await util.expandThreadCard("Msg1");
+        await util.assertNoThreadsIndicator();
+
+        // Asserted against the receipts rather than the unread counts, which the server owns and
+        // delivers on its own schedule: checking a count immediately after reading mostly proves
+        // that the next sync has not arrived yet, and passes whatever the receipt said.
+        const ids = await app.client.evaluate((cli, roomId) => {
+            const room = cli.getRoom(roomId)!;
+            const find = (body: string): string | undefined =>
+                room
+                    .getLiveTimeline()
+                    .getEvents()
+                    .find((event) => event.getContent().body === body)
+                    ?.getId();
+            const rootId = find("Msg1");
+            return {
+                plain: find("Not in any thread"),
+                reply: rootId ? room.getThread(rootId)?.lastReply()?.getId() : undefined,
+            };
+        }, room1.roomId);
+        expect(ids.plain).toBeTruthy();
+        expect(ids.reply).toBeTruthy();
+
+        const hasRead = (eventId: string): Promise<boolean> =>
+            app.client.evaluate(
+                (cli, { roomId, eventId }) => cli.getRoom(roomId)!.hasUserReadEvent(cli.getUserId()!, eventId),
+                { roomId: room1.roomId, eventId },
+            );
+
+        // Waiting for the thread's own reply to read as read is what makes the check below
+        // meaningful: it is the point at which the receipt has demonstrably been sent and
+        // processed, so "the plain message is still unread" is a fact rather than a head start.
+        await expect.poll(() => hasRead(ids.reply!)).toBe(true);
+        expect(await hasRead(ids.plain!)).toBe(false);
+    });
+
     test("should keep a card open under Unread while reading marks it read", async ({
         room1,
         util,
@@ -205,5 +269,80 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await util.openThreadsPage();
 
         await expect(util.getThreadsNavButton()).toHaveAttribute("aria-current", "page");
+    });
+
+    test("should return to the previous room when the nav button is pressed again", async ({ room1, util, page }) => {
+        await util.goTo(room1);
+        await util.openThreadsPage();
+
+        await util.getThreadsNavButton().click();
+
+        await expect(util.getThreadsPage()).toBeHidden();
+        await expect(util.getThreadsNavButton()).not.toHaveAttribute("aria-current", "page");
+        // Which room, not merely "not the threads page": going Home would satisfy everything
+        // above it while losing the user's place, which is the whole point of the control.
+        await expect(page.getByRole("heading", { name: room1.name, exact: true })).toBeVisible();
+    });
+
+    test("should open the composer without unfolding the whole thread", async ({ room1, util, msg }) => {
+        await util.goTo(room1);
+        await util.receiveMessages(room1, [
+            "Msg1",
+            msg.threadedOff("Msg1", "Reply1"),
+            msg.threadedOff("Msg1", "Reply2"),
+            msg.threadedOff("Msg1", "Reply3"),
+            msg.threadedOff("Msg1", "Reply4"),
+        ]);
+        await util.sendMessages(room1, [msg.threadedOff("Msg1", "Mine")]);
+
+        await util.openThreadsPage();
+        const card = util.getThreadCard("Msg1");
+        await card.getByRole("button", { name: "Reply…" }).click();
+
+        // Asking to write a reply is not asking to read the whole thread, so the earlier replies
+        // stay behind the count they were behind before.
+        await expect(util.getCardComposer(card)).toBeVisible();
+        await expect(card.getByRole("button", { name: /^Show \d+ more repl/ })).toBeVisible();
+        await expect(card).not.toContainText("Reply1");
+    });
+
+    test("should load a whole thread rather than asking for it a page at a time", async ({
+        room1,
+        util,
+        msg,
+        page,
+    }) => {
+        await util.goTo(room1);
+        await util.receiveMessages(room1, [
+            "Msg1",
+            ...Array.from({ length: 24 }, (_, i) => msg.threadedOff("Msg1", `Reply${i + 1}`)),
+        ]);
+        await util.sendMessages(room1, [msg.threadedOff("Msg1", "Mine")]);
+
+        // Reloaded so the replies have to be fetched rather than simply still being in memory from
+        // having watched them arrive. A fresh sync gives a thread only the one reply the server
+        // bundles with its root, which is the state every card in the feed starts in and the only
+        // state in which this can tell the difference between paginating once and paginating until
+        // the thread is whole.
+        await page.reload();
+        await util.openThreadsPage();
+        const card = util.getThreadCard("Msg1");
+        await expect(card).not.toContainText("Reply1");
+        await card.getByRole("button", { name: /^Show \d+ more repl/ }).click();
+
+        // More replies than fit in one page of pagination, so a card that only fetched one would
+        // leave the reader to click through the rest by hand.
+        await expect(card).toContainText("Reply1");
+        await expect(card.getByRole("button", { name: "Load earlier replies" })).toHaveCount(0);
+    });
+
+    test("should mark every unread thread read from the header", async ({ room1, room2, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.populateThreads(room1, room2, msg, user);
+        await util.openThreadsPage();
+
+        await util.getThreadsPage().getByRole("button", { name: "Mark all as read" }).click();
+
+        await util.assertNoThreadsIndicator();
     });
 });
