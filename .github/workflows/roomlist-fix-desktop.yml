@@ -24,6 +24,7 @@ on:
             - release
         tags:
             - "roomlist-fix-*"
+            - "threads-*"
 
 permissions:
     contents: read
@@ -349,7 +350,21 @@ jobs:
                   set -euo pipefail
                   ls -la dist
                   cat > notes.md <<'NOTES'
-                  Unofficial build of Element Desktop with the room list scroll fix and these room list options:
+                  Unofficial build of Element Desktop with a Slack-style threads view and the room list changes.
+
+                  ## Threads
+
+                  The Threads Activity Centre is replaced by a scrollable page listing every thread you have taken part in or been mentioned in, across all rooms, newest first. Open it from the threads button at the bottom of the space panel; press it again to go back to the room you came from.
+
+                  - **Expandable cards** each card shows the room, the thread's opening message and its last few replies. Click a card to reply inline, or the hidden reply count to unfold the whole thread. One card is open at a time.
+                  - **Filters** Unread, Mentions and Never Replied, which combine: Unread plus Mentions means unread mentions. Nothing selected means everything.
+                  - **Waiting on you** marks threads where somebody named you and you have not answered. Replying or reacting clears it.
+                  - **Marking read** per thread from the card's ... menu, or all at once from the header. Reading a thread does not mark the rest of the room read.
+                  - **Progressive loading** threads already in memory appear instantly, and the rest are fetched in the background as you scroll rather than all at once.
+
+                  ![The threads page, with one card unfolded](https://raw.githubusercontent.com/__REPO__/__TAG__/.github/release-assets/threads-view.png)
+
+                  ## Room list
 
                   - **Scroll performance** the room list no longer drops frames on long lists; each row used to keep several closed tooltips running position-tracking loops.
                   - **Compact layout** a 32px row with a 26px avatar, roughly 60% more rooms on screen. Message previews cannot fit, so they are off while it is on. Room list three-dot menu.
@@ -367,9 +382,11 @@ jobs:
                   - **Linux** no signature to check.
 
                   Auto-update is disabled, so these will never replace themselves with official Element. Run with `--profile roomlist-fix` to keep the data directory separate from an existing Element install.
+
+                  Nothing here writes state that stock Element cannot read: the threads page stores no account data and its read receipts are ordinary threaded receipts, so a profile stays usable if you go back. The one exception is the People section, which files rooms under a custom `m.tag` that stock Element does not recognise.
                   NOTES
                   sed -i "s|__TAG__|$TAG|g; s|__REPO__|$GITHUB_REPOSITORY|g" notes.md
                   gh release create "$TAG" dist/* \
                     --repo "$GITHUB_REPOSITORY" \
-                    --title "Room list fixes - $TAG" \
+                    --title "Threads view and room list fixes - $TAG" \
                     --notes-file notes.md
