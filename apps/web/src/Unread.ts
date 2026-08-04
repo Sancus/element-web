@@ -6,7 +6,15 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import { M_BEACON, type Room, Thread, type MatrixEvent, EventType, type MatrixClient } from "matrix-js-sdk/src/matrix";
+import {
+    M_BEACON,
+    type Room,
+    Thread,
+    type MatrixEvent,
+    EventType,
+    type MatrixClient,
+    inMainTimelineForReceipt,
+} from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 
 import shouldHideEvent from "./shouldHideEvent";
@@ -109,7 +117,7 @@ export function doesRoomHaveUnreadThreads(room: Room): boolean {
     }
 
     for (const thread of room.getThreads()) {
-        if (doesTimelineHaveUnreadMessages(room, thread.timeline)) {
+        if (doesTimelineHaveUnreadMessages(room, threadOwnEvents(thread))) {
             // We found an unread, so the room has an unread thread
             return true;
         }
@@ -121,8 +129,23 @@ export function doesRoomHaveUnreadThreads(room: Room): boolean {
 
 export function doesRoomOrThreadHaveUnreadMessages(roomOrThread: Room | Thread): boolean {
     const room = roomOrThread instanceof Thread ? roomOrThread.room : roomOrThread;
-    const events = roomOrThread instanceof Thread ? roomOrThread.timeline : room.getLiveTimeline().getEvents();
+    const events = roomOrThread instanceof Thread ? threadOwnEvents(roomOrThread) : room.getLiveTimeline().getEvents();
     return doesTimelineHaveUnreadMessages(room, events);
+}
+
+/**
+ * The events in a thread's timeline that belong to the thread for read-receipt purposes.
+ *
+ * A thread's timeline also holds its root, and the reactions and edits aimed at that root, all of
+ * which the SDK counts as the main timeline's — `threadIdForReceipt` resolves them to
+ * `MAIN_ROOM_TIMELINE`, so their read state answers to the room's receipt and not the thread's.
+ * Counting them here makes a thread unread over something no thread-level action can mark: a thread
+ * whose newest event from anybody else is its root reads as unread and stays that way however often
+ * the user marks it read, because the only receipt that would clear it is one that would also mark
+ * the rest of a room they have not looked at.
+ */
+function threadOwnEvents(thread: Thread): MatrixEvent[] {
+    return thread.timeline.filter((event) => !inMainTimelineForReceipt(event));
 }
 
 /**
