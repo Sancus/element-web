@@ -1,8 +1,8 @@
-# Builds unsigned Element Desktop packages carrying the room list changes.
+# Builds unsigned Element Desktop packages carrying this fork's changes.
 #
 # Pushing the release branch runs the whole build and stops at the uploaded artifacts, so a
-# candidate can be downloaded from the run and tested. Pushing a roomlist-fix-* tag runs the
-# same build and publishes a GitHub Release from it.
+# candidate can be downloaded from the run and tested. Pushing a release tag runs the same build
+# and publishes a GitHub Release from it.
 #
 # Separate from the upstream build_desktop_* workflows: those check out element-hq/element-web by
 # name (so they ignore fork changes) and sign via eSigner / Apple notarisation.
@@ -15,7 +15,7 @@
 # matrix-seshat (encrypted search) is compiled per platform through hak and verified inside the
 # packaged app, which is why each platform sets up Rust and, on Windows, Tcl and NASM.
 
-name: Room list fix - desktop builds
+name: Desktop builds
 
 on:
     workflow_dispatch:
