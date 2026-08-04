@@ -38,6 +38,7 @@ import { Layout } from "../../../settings/enums/Layout";
 import { formatRelativeTime } from "../../../DateUtils";
 import { formatList } from "../../../utils/FormattingUtils";
 import UserActivity from "../../../UserActivity";
+import { E2EStatus, shieldStatusForRoom } from "../../../utils/ShieldUtils";
 import { isClearableByReceipt, NotificationLevel } from "../../../stores/notifications/NotificationLevel";
 import { clearThreadNotification, threadReceiptTarget } from "../../../utils/notifications";
 import { type ThreadFeedEntry } from "../../../viewmodels/threads/threadsFeed";
@@ -53,6 +54,8 @@ import { usePermalinkCreator, useThreadCardRoomContext } from "./useThreadCardRo
 const COLLAPSED_REPLY_COUNT = 2;
 /** Participants named in the card header before the rest become "and N others". */
 const PARTICIPANT_NAME_LIMIT = 2;
+/** Where the composer's menus, emoji pickers and dialogs are rendered, all of them outside the card. */
+const PORTAL_SELECTORS = ".mx_ContextualMenu_wrapper, .mx_Dialog_wrapper, [data-floating-ui-portal]";
 /** Replies requested per pagination request. */
 const PAGINATE_LIMIT = 20;
 /**
@@ -289,6 +292,8 @@ export const ThreadCard = memo(function ThreadCard({
      */
     const selfInitiated = useRef(false);
 
+    const cardRef = useRef<HTMLElement | null>(null);
+
     /** `onSetActive`, remembering that the request came from this card. */
     const setActive = useCallback(
         (threadId: string | null) => {
@@ -317,6 +322,57 @@ export const ThreadCard = memo(function ThreadCard({
     const onCollapse = useCallback(() => {
         setActive(null);
     }, [setActive]);
+
+    // Clicking away from a composer the user has not written in puts the card back to its "Reply…"
+    // prompt, so that opening one to read a line and moving on does not leave open composers strewn
+    // down the feed. Anything typed keeps the composer open: a draft is work, and hiding it because
+    // the user glanced elsewhere would look like it had been thrown away.
+    useEffect(() => {
+        if (!active) return;
+        const onPointerDown = (ev: PointerEvent): void => {
+            const target = ev.target;
+            if (!(target instanceof Node) || !cardRef.current || cardRef.current.contains(target)) return;
+            // The composer's menus, pickers and dialogs are portalled out of the card, so a click
+            // in one of those is still a click in the composer.
+            if (target instanceof Element && target.closest(PORTAL_SELECTORS)) return;
+            if (replyToEvent || editState) return;
+            const input = cardRef.current.querySelector(".mx_BasicMessageComposer_input");
+            // The composer marks itself empty to show its placeholder, so it has already worked
+            // out the answer.
+            if (input && !input.classList.contains("mx_BasicMessageComposer_inputEmpty")) return;
+            // Deliberately not `setActive`: the user has just put the focus somewhere else, and
+            // taking it back to this card's prompt is the thing they did not ask for.
+            onSetActive(null);
+        };
+        document.addEventListener("pointerdown", onPointerDown, true);
+        return () => document.removeEventListener("pointerdown", onPointerDown, true);
+    }, [active, onSetActive, replyToEvent, editState]);
+
+    // The composer works out what to call itself from `e2eStatus`, and without one it says "Send an
+    // unencrypted message" under a broken padlock. In an encrypted room that is simply false, and it
+    // is the one thing a composer must not be wrong about. Only the active card has a composer, so
+    // this is answered for a single room at a time rather than for every room in the feed.
+    const [e2eStatus, setE2eStatus] = useState<E2EStatus | undefined>();
+    useEffect(() => {
+        if (!active || !roomContext.isRoomEncrypted) {
+            setE2eStatus(undefined);
+            return;
+        }
+        // Encrypted until we hear otherwise. The shield reports on who else is in the room, which
+        // takes a round of device queries to answer, and the composer must not spend that time
+        // claiming the room is unencrypted — the mistake this whole effect exists to avoid.
+        setE2eStatus(E2EStatus.Normal);
+        let cancelled = false;
+        shieldStatusForRoom(client, room).then(
+            (status) => {
+                if (!cancelled) setE2eStatus(status);
+            },
+            (e) => logger.warn(`ThreadCard: could not get the encryption status of ${room.roomId}`, e),
+        );
+        return () => {
+            cancelled = true;
+        };
+    }, [active, roomContext.isRoomEncrypted, client, room]);
 
     /** Whether an action's target event belongs to this card's thread rather than another card's. */
     const ownsEvent = useCallback(
@@ -443,7 +499,6 @@ export const ThreadCard = memo(function ThreadCard({
     // returned to the top of the page. Opening the composer hands focus to it, as clicking a
     // composer-shaped "Reply…" button implies; closing hands it back to the control that replaces
     // it, as a disclosure should.
-    const cardRef = useRef<HTMLElement | null>(null);
     const replyPromptRef = useRef<HTMLButtonElement | null>(null);
     const wasActive = useRef(active);
     useEffect(() => {
@@ -607,6 +662,7 @@ export const ThreadCard = memo(function ThreadCard({
                     relation={threadRelation}
                     replyToEvent={replyToEvent}
                     permalinkCreator={permalinkCreator}
+                    e2eStatus={e2eStatus}
                     compact={true}
                 />
             ) : (
@@ -663,14 +719,15 @@ export const ThreadCard = memo(function ThreadCard({
                         onMarkRead={markRead}
                         onViewInRoom={onViewInRoom}
                     />
-                    {active && (
-                        // Kept in the header rather than below the composer: an expanded card can be
+                    {repliesExpanded && (
+                        // Only once the replies are actually unfolded: a card whose composer is open
+                        // has nothing unfolded to collapse, and offering to "Collapse thread" there
+                        // describes a state the card is not in. That composer is dismissed by
+                        // clicking away from it or by Escape.
+                        //
+                        // Kept in the header rather than below the composer: an unfolded card can be
                         // taller than the viewport, and a collapse control at the very bottom means
                         // scrolling the whole conversation to find the way back.
-                        // No `aria-expanded` here: a card can be active with its replies still
-                        // folded, so claiming the disclosure is open would be a lie in exactly the
-                        // case the two states were split apart to allow. The label already says
-                        // what the control does.
                         <button type="button" className="mx_ThreadCard_collapse" onClick={onCollapse}>
                             {_t("threads_view|collapse")}
                         </button>

@@ -329,7 +329,11 @@ export class Helpers {
     }
 
     /**
-     * Expand the card for the thread rooted at the given message
+     * Open the card for the thread rooted at the given message, by whichever of its two controls
+     * the card is offering.
+     *
+     * Settled on the composer rather than on the collapse control: a card can be opened to write in
+     * without its replies being unfolded, and only unfolding produces something to collapse.
      */
     async expandThreadCard(rootMessage: string) {
         const card = this.getThreadCard(rootMessage);
@@ -339,19 +343,17 @@ export class Helpers {
             .getByRole("button", { name: /^(Show \d+ more repl|Reply…$)/ })
             .first()
             .click();
-        await expect(card.getByRole("button", { name: "Collapse thread" })).toBeVisible();
+        await expect(this.getCardComposer(card)).toBeVisible();
     }
 
     /**
-     * The composer inside an expanded thread card.
+     * The composer inside an open thread card.
      *
-     * The accessible name comes from the placeholder, which differs by encryption state — an
-     * unencrypted room says "Send an unencrypted message…" where an encrypted one says "Send a
-     * message…" — so this matches either rather than pinning the tests to how the fixture rooms
-     * happen to be created.
+     * Found by role alone: its accessible name is the placeholder, and the placeholder is the thing
+     * some of these tests are checking, so naming it here would let a wrong one pass unnoticed.
      */
     getCardComposer(card: Locator): Locator {
-        return card.getByRole("textbox", { name: /^Send an? (unencrypted )?message…$/ });
+        return card.getByRole("textbox");
     }
 
     /**
