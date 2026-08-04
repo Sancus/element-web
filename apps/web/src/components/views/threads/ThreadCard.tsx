@@ -37,6 +37,7 @@ import EditorStateTransfer from "../../../utils/EditorStateTransfer";
 import { Layout } from "../../../settings/enums/Layout";
 import { formatRelativeTime } from "../../../DateUtils";
 import { formatList } from "../../../utils/FormattingUtils";
+import UserActivity from "../../../UserActivity";
 import { isClearableByReceipt, NotificationLevel } from "../../../stores/notifications/NotificationLevel";
 import { clearThreadNotification, threadReceiptTarget } from "../../../utils/notifications";
 import { type ThreadFeedEntry } from "../../../viewmodels/threads/threadsFeed";
@@ -323,6 +324,60 @@ export const ThreadCard = memo(function ThreadCard({
         [thread.id],
     );
 
+    // Reading a thread in the feed clears its unread state, as opening it in the thread panel
+    // would.
+    //
+    // Keyed on the newest event rather than on the thread's notification level, so replies that
+    // arrive while the card is open are marked read too. Keying on the level cannot do that: it
+    // drops to None as soon as the first receipt lands, and a reply arriving before that leaves it
+    // unchanged, so in both cases the effect does not run again.
+    const receiptedEventId = useRef<string | null>(null);
+    const latestEventId = threadReceiptTarget(thread)?.getId();
+    const markRead = useCallback(() => {
+        const eventId = threadReceiptTarget(thread)?.getId();
+        if (!eventId) return;
+        receiptedEventId.current = eventId;
+        clearThreadNotification(thread, room, client).catch((e) => {
+            logger.warn(`ThreadCard: failed to send read receipt for thread ${thread.id}`, e);
+            // The receipt never landed, so the thread is only read on this screen. Releasing the
+            // marker lets a later reopen try again instead of leaving it read here and unread
+            // everywhere else for the rest of the session.
+            if (receiptedEventId.current === eventId) receiptedEventId.current = null;
+        });
+    }, [thread, room, client]);
+
+    // Whether the replies the user has not read are on screen. Marking a thread read is a claim
+    // that they have seen it, so a card still hiding replies behind "Show N more" must not make
+    // it: opening the composer to write a reply is not the same as having read what came before.
+    //
+    // An expanded card qualifies as soon as it has stopped fetching, without waiting for the
+    // back-pagination token to run out. Unread replies are the newest ones and arrive at the
+    // bottom, where an expanded card always shows them; the token is about the far end of the
+    // history, and a thread longer than the auto-load cap keeps one for good, which would leave
+    // the longest threads permanently unreadable-as-read.
+    const unreadRepliesVisible = repliesExpanded ? !paginating : hiddenReplyCount === 0;
+
+    // Being on screen is not the same as being read: a card left open on an unattended screen
+    // would otherwise mark a night's worth of replies read on the strength of nobody being there.
+    // The timeline holds its receipts back the same way, running them only while `UserActivity`
+    // says the app has the user's attention, which it withdraws on blur and on the tab being
+    // hidden. Anything held back is sent by the dispatcher case above as soon as they return.
+    const deferredReceipt = useRef(false);
+    const sendReceiptIfUnread = useCallback(() => {
+        if (!active || !unreadRepliesVisible) return;
+        const eventId = threadReceiptTarget(thread)?.getId();
+        if (!eventId || receiptedEventId.current === eventId) return;
+        if (!UserActivity.sharedInstance().userActiveRecently()) {
+            deferredReceipt.current = true;
+            return;
+        }
+        markRead();
+    }, [active, unreadRepliesVisible, thread, markRead]);
+
+    useEffect(() => {
+        sendReceiptIfUnread();
+    }, [sendReceiptIfUnread, latestEventId]);
+
     // `EventTile`'s reply and edit controls identify their target with nothing but
     // `TimelineRenderingType.Thread`, because upstream never has more than one thread timeline
     // on screen: `RoomViewStore` skips thread replies entirely and `ThreadView` claims them all.
@@ -356,6 +411,13 @@ export const ThreadCard = memo(function ThreadCard({
                 if (!ownsEvent(payload.event)) return;
                 setEditState(new EditorStateTransfer(payload.event));
                 if (!active) setActive(thread.id);
+                break;
+
+            // A receipt held back because the user was away is sent once they are back.
+            case Action.UserActivity:
+                if (!deferredReceipt.current) return;
+                deferredReceipt.current = false;
+                sendReceiptIfUnread();
                 break;
 
             default:
@@ -450,45 +512,6 @@ export const ThreadCard = memo(function ThreadCard({
         autoLoaded.current = true;
         void loadReplies(Math.min(thread.length, AUTO_LOAD_REPLY_CAP));
     }, [repliesExpanded, thread.length, loadReplies]);
-
-    // Reading a thread in the feed clears its unread state, as opening it in the thread panel
-    // would.
-    //
-    // Keyed on the newest event rather than on the thread's notification level, so replies that
-    // arrive while the card is open are marked read too. Keying on the level cannot do that: it
-    // drops to None as soon as the first receipt lands, and a reply arriving before that leaves it
-    // unchanged, so in both cases the effect does not run again.
-    const receiptedEventId = useRef<string | null>(null);
-    const latestEventId = threadReceiptTarget(thread)?.getId();
-    const markRead = useCallback(() => {
-        const eventId = threadReceiptTarget(thread)?.getId();
-        if (!eventId) return;
-        receiptedEventId.current = eventId;
-        clearThreadNotification(thread, room, client).catch((e) => {
-            logger.warn(`ThreadCard: failed to send read receipt for thread ${thread.id}`, e);
-            // The receipt never landed, so the thread is only read on this screen. Releasing the
-            // marker lets a later reopen try again instead of leaving it read here and unread
-            // everywhere else for the rest of the session.
-            if (receiptedEventId.current === eventId) receiptedEventId.current = null;
-        });
-    }, [thread, room, client]);
-
-    // Whether the replies the user has not read are on screen. Marking a thread read is a claim
-    // that they have seen it, so a card still hiding replies behind "Show N more" must not make
-    // it: opening the composer to write a reply is not the same as having read what came before.
-    //
-    // An expanded card qualifies as soon as it has stopped fetching, without waiting for the
-    // back-pagination token to run out. Unread replies are the newest ones and arrive at the
-    // bottom, where an expanded card always shows them; the token is about the far end of the
-    // history, and a thread longer than the auto-load cap keeps one for good, which would leave
-    // the longest threads permanently unreadable-as-read.
-    const unreadRepliesVisible = repliesExpanded ? !paginating : hiddenReplyCount === 0;
-
-    useEffect(() => {
-        if (!active || !unreadRepliesVisible) return;
-        if (!latestEventId || receiptedEventId.current === latestEventId) return;
-        markRead();
-    }, [active, unreadRepliesVisible, latestEventId, markRead]);
 
     const onViewInRoom = useCallback(() => {
         defaultDispatcher.dispatch<ViewRoomPayload>({
