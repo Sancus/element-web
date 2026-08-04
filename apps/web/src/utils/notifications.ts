@@ -16,6 +16,9 @@ import {
     type IMarkedUnreadEvent,
     type EmptyObject,
     EventType,
+    type Thread,
+    type MatrixEvent,
+    inMainTimelineForReceipt,
 } from "matrix-js-sdk/src/matrix";
 import { type IndicatorIcon } from "@vector-im/compound-web";
 
@@ -115,6 +118,66 @@ export async function clearRoomNotification(room: Room, client: MatrixClient): P
             room.setThreadUnreadNotificationCount(thread.id, NotificationCountType.Highlight, 0);
             room.setThreadUnreadNotificationCount(thread.id, NotificationCountType.Total, 0);
         }
+    }
+}
+
+/**
+ * The newest event in a thread that a *threaded* read receipt can be sent against, or null if
+ * there is not one yet.
+ *
+ * The thread root is deliberately not a candidate. `sendReceipt` derives a receipt's `thread_id`
+ * from the event it is given, and the SDK classifies a thread root as belonging to the main
+ * timeline — so a receipt sent against the root would advance the room's main-timeline receipt and
+ * mark messages the user has never opened, which is the opposite of what a per-thread control is
+ * for. `inMainTimelineForReceipt` is the SDK's own classifier, used here so this cannot drift from
+ * the decision `sendReceipt` will actually make.
+ *
+ * `replyToEvent` is checked as well as `lastReply`, because it is the only accessor that sees the
+ * reply the server bundles with the root, and a thread that has not been paginated yet has nothing
+ * else — which is the state every card in the threads feed starts in.
+ */
+export function threadReceiptTarget(thread: Thread): MatrixEvent | null {
+    for (const candidate of [thread.lastReply(), thread.replyToEvent]) {
+        if (!candidate) continue;
+        if (inMainTimelineForReceipt(candidate)) continue;
+        // A local echo has no event ID the server would accept a receipt for.
+        if (candidate.status !== null) continue;
+        return candidate;
+    }
+    return null;
+}
+
+/**
+ * Mark a single thread as read, leaving the rest of its room alone.
+ *
+ * The room-level equivalent above sends an unthreaded receipt, which marks the main timeline and
+ * every thread in the room at once. This sends a threaded one, so reading a thread out of the
+ * cross-room feed does not silently mark a room the user has not looked at.
+ *
+ * @param thread The thread to mark as read
+ * @param room The room the thread belongs to
+ * @param client The matrix client
+ * @returns a promise that resolves when the receipt has been sent, or undefined if there was
+ *   nothing the server would accept a receipt for
+ */
+export async function clearThreadNotification(
+    thread: Thread,
+    room: Room,
+    client: MatrixClient,
+): Promise<EmptyObject | undefined> {
+    const latest = threadReceiptTarget(thread);
+    if (!latest) return undefined;
+
+    try {
+        const receiptType = SettingsStore.getValue("sendReadReceipts", room.roomId)
+            ? ReceiptType.Read
+            : ReceiptType.ReadPrivate;
+        return await client.sendReadReceipt(latest, receiptType);
+    } finally {
+        // For the same reason `clearRoomNotification` does it: counts can be left stranded by
+        // decryption racing the receipt, and the user has said they are done with this thread.
+        room.setThreadUnreadNotificationCount(thread.id, NotificationCountType.Highlight, 0);
+        room.setThreadUnreadNotificationCount(thread.id, NotificationCountType.Total, 0);
     }
 }
 

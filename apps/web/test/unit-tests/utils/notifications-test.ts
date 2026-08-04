@@ -13,6 +13,9 @@ import {
     type MatrixClient,
     ReceiptType,
     type AccountDataEvents,
+    type Thread,
+    PendingEventOrdering,
+    EventStatus,
 } from "matrix-js-sdk/src/matrix";
 import { type Mocked, mocked } from "jest-mock-vitest-adapter";
 
@@ -23,6 +26,7 @@ import {
     deviceNotificationSettingsKeys,
     clearAllNotifications,
     clearRoomNotification,
+    clearThreadNotification,
     notificationLevelToIndicator,
     getThreadNotificationLevel,
     getMarkedUnreadState,
@@ -30,6 +34,7 @@ import {
 } from "../../../src/utils/notifications";
 import { getMockClientWithEventEmitter, mockClientMethodsServer } from "../../test-utils/client";
 import { mkMessage, stubClient } from "../../test-utils/test-utils";
+import { populateThread } from "../../test-utils/threads";
 import { MatrixClientPeg } from "../../../src/MatrixClientPeg";
 import { NotificationLevel } from "../../../src/stores/notifications/NotificationLevel";
 import { SettingLevel } from "../../../src/settings/SettingLevel";
@@ -170,6 +175,86 @@ describe("notifications", () => {
                 await clearRoomNotification(room, client);
                 expect(sendReadReceiptSpy).toHaveBeenCalledWith(message, ReceiptType.ReadPrivate, true);
             });
+        });
+    });
+
+    describe("clearThreadNotification", () => {
+        let client: MatrixClient;
+        let room: Room;
+        let sendReadReceiptSpy: jest.SpyInstance;
+        const ROOM_ID = "!threads:example.org";
+        const USER_ID = "@bob:example.org";
+
+        beforeEach(() => {
+            stubClient();
+            client = mocked(MatrixClientPeg.safeGet());
+            client.supportsThreads = () => true;
+            room = new Room(ROOM_ID, client, USER_ID, { pendingEventOrdering: PendingEventOrdering.Detached });
+            sendReadReceiptSpy = jest.spyOn(client, "sendReadReceipt").mockResolvedValue({});
+            SettingsStore.setValue("sendReadReceipts", null, SettingLevel.DEVICE, true);
+        });
+
+        async function makeThread(): Promise<Thread> {
+            const { thread } = await populateThread({
+                room,
+                client,
+                authorId: USER_ID,
+                participantUserIds: ["@alice:example.org"],
+                length: 4,
+            });
+            return thread;
+        }
+
+        it("sends a threaded receipt against the newest reply", async () => {
+            const thread = await makeThread();
+            await clearThreadNotification(thread, room, client);
+
+            const [event, receiptType, unthreaded] = sendReadReceiptSpy.mock.calls[0];
+            expect(event.getId()).toBe(thread.lastReply()!.getId());
+            expect(receiptType).toBe(ReceiptType.Read);
+            // Unthreaded receipts mark the whole room, which is the one thing a per-thread
+            // control must not do.
+            expect(unthreaded).toBeFalsy();
+        });
+
+        it("never sends a receipt against the thread root", async () => {
+            // The state a card in the feed starts in: the thread is known from the root's bundled
+            // relations, and its own timeline has not been fetched yet. The SDK counts a thread
+            // root as part of the main timeline, so a receipt against it would advance the room's
+            // main-timeline receipt and mark messages the user has never opened.
+            const thread = await makeThread();
+            jest.spyOn(thread, "lastReply").mockReturnValue(null);
+            jest.spyOn(thread, "replyToEvent", "get").mockReturnValue(thread.rootEvent!);
+
+            await expect(clearThreadNotification(thread, room, client)).resolves.toBeUndefined();
+            expect(sendReadReceiptSpy).not.toHaveBeenCalled();
+        });
+
+        it("does not send a receipt for a reply that is still sending", async () => {
+            const thread = await makeThread();
+            const pending = thread.lastReply()!;
+            pending.status = EventStatus.SENDING;
+            jest.spyOn(thread, "replyToEvent", "get").mockReturnValue(pending);
+
+            await expect(clearThreadNotification(thread, room, client)).resolves.toBeUndefined();
+            expect(sendReadReceiptSpy).not.toHaveBeenCalled();
+        });
+
+        it("sends a private receipt when read receipts are disabled", async () => {
+            SettingsStore.setValue("sendReadReceipts", null, SettingLevel.DEVICE, false);
+            const thread = await makeThread();
+            await clearThreadNotification(thread, room, client);
+
+            expect(sendReadReceiptSpy.mock.calls[0][1]).toBe(ReceiptType.ReadPrivate);
+        });
+
+        it("clears the thread's counts even if the receipt fails", async () => {
+            const thread = await makeThread();
+            room.setThreadUnreadNotificationCount(thread.id, NotificationCountType.Total, 5);
+            sendReadReceiptSpy.mockReset().mockRejectedValue({ error: 42 });
+
+            await expect(clearThreadNotification(thread, room, client)).rejects.toEqual({ error: 42 });
+            expect(room.getThreadUnreadNotificationCount(thread.id, NotificationCountType.Total)).toBe(0);
         });
     });
 

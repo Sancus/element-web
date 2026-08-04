@@ -19,6 +19,18 @@ export enum NotificationLevel {
     Unsent, // some messages failed to send
 }
 
+/**
+ * Whether a read receipt would actually clear this level.
+ *
+ * `Unsent` outranks the rest, so a plain `> None` test treats a thread with a message that failed
+ * to send as unread. It is not: the level is derived from the pending event rather than from the
+ * notification counts, so a receipt leaves it exactly where it was, and a control offering to mark
+ * it read is offering something it cannot do. What such a thread needs is a retry.
+ */
+export function isClearableByReceipt(level: NotificationLevel): boolean {
+    return level > NotificationLevel.None && level < NotificationLevel.Unsent;
+}
+
 export function humanReadableNotificationLevel(level: NotificationLevel): string {
     switch (level) {
         case NotificationLevel.None:
