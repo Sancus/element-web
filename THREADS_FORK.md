@@ -172,9 +172,16 @@ threads work writes **no shared state at all**:
 - **`mx_last_room_id` is never written by the threads page.** That key is shared with stock
   Element, which has no threads screen to restore, so `viewThreads()` deliberately leaves it
   pointing at the last real room.
-- **Read receipts are ordinary threaded receipts.** Expanding a card sends a normal
-  `m.read`/`m.read.private` receipt scoped to the thread root, exactly as opening the thread
-  panel would. Nothing fork-specific is involved.
+- **Read receipts are ordinary threaded receipts.** Reading a card sends a normal
+  `m.read`/`m.read.private` carrying the thread's ID, exactly as opening the thread panel
+  would. Nothing fork-specific is involved, and stock Element reads these back as its own.
+  What the receipt is sent *against* matters: never the thread root, because the SDK counts a
+  root as main-timeline and would advance the room's receipt with it, marking messages the
+  user has never opened. See `threadReceiptTarget()`.
+- **"Mark all as read" is the one bulk write.** It sends a threaded receipt per unread thread
+  in the feed, and receipts do not come back. That is the feature working, but it is worth
+  knowing it is the only control here that changes a lot of shared state at once, and that
+  stock Element will honour every one of those receipts afterwards.
 
 The one shared-schema compromise is analytics: `InteractionName` and `ScreenName` are closed
 unions from `@matrix-org/analytics-events`, so the nav button reuses upstream's
