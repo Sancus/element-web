@@ -100,12 +100,18 @@ describe("ThreadsNavButton", () => {
     it("marks itself as the current page when active", () => {
         renderButton({ isActive: true });
 
-        expect(screen.getByRole("button", { name: "Threads" })).toHaveAttribute("aria-current", "page");
+        const button = screen.getByRole("button", { name: "Threads" });
+        expect(button).toHaveAttribute("aria-current", "page");
+        // The class the toggled-on styling hangs off, so losing it would leave the button looking
+        // switched off while the threads page was open.
+        expect(button).toHaveClass("mx_ThreadsNavButton_active");
     });
 
     it("is not marked as current when inactive", () => {
         renderButton();
 
-        expect(screen.getByRole("button", { name: "Threads" })).not.toHaveAttribute("aria-current");
+        const button = screen.getByRole("button", { name: "Threads" });
+        expect(button).not.toHaveAttribute("aria-current");
+        expect(button).not.toHaveClass("mx_ThreadsNavButton_active");
     });
 });

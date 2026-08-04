@@ -64,12 +64,17 @@
         fill: $secondary-content;
     }
 
-    /* Selected state, mirroring how an active space is marked in the panel. */
+    /* Toggled-on state. The background is the one the panel puts behind a selected space, but at
+       collapsed width that wash sits behind an icon rather than an avatar and barely registers, so
+       the icon also takes the accent colour Element uses elsewhere for a control whose view is the
+       one currently showing. Held through hover as well, since the icon losing its colour under the
+       pointer would read as the button turning off. */
     &.mx_ThreadsNavButton_active {
         background-color: $panel-actions !important;
 
-        & .mx_ThreadsNavButton_icon {
-            fill: $primary-content;
+        & .mx_ThreadsNavButton_icon,
+        &:hover .mx_ThreadsNavButton_icon {
+            fill: var(--cpd-color-icon-accent-primary);
         }
 
         & .mx_ThreadsNavButton_label {
