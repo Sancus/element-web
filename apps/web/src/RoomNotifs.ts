@@ -294,7 +294,11 @@ export function determineUnreadState(
         return { symbol: null, count: trueCount, level: NotificationLevel.Highlight, invited: false };
     }
 
-    const markedUnreadState = getMarkedUnreadState(room);
+    // Marking unread is a room-level act stored in room account data, so it says nothing about any
+    // one thread. Applied per thread it would light every thread in the room over something the user
+    // never said about them, and that no thread-level control could put out: clearing it means
+    // unmarking the room.
+    const markedUnreadState = threadId === undefined && getMarkedUnreadState(room);
     if (greyNotifs > 0 || markedUnreadState) {
         return { symbol: null, count: trueCount, level: NotificationLevel.Notification, invited: false };
     }

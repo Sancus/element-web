@@ -525,6 +525,37 @@ describe("Unread", () => {
                 expect(doesRoomOrThreadHaveUnreadMessages(room)).toBe(false);
             });
         });
+
+        describe("asked about a thread rather than a room", () => {
+            it("does not count the thread's root, which only the room's receipt can mark", async () => {
+                // Everything after the root is the user's own, so the root is the newest event that
+                // could make the thread unread. It must not: the SDK resolves a receipt against a
+                // thread root to the main timeline, so a thread counting its root would be unread
+                // over an event that no per-thread control can ever mark, and marking the thread
+                // read would appear to do nothing however often it was asked for.
+                const { thread } = await populateThread({
+                    room,
+                    client,
+                    authorId: aliceId,
+                    participantUserIds: [myId],
+                    length: 4,
+                });
+
+                expect(doesRoomOrThreadHaveUnreadMessages(thread)).toBe(false);
+            });
+
+            it("still counts an unread reply", async () => {
+                const { thread } = await populateThread({
+                    room,
+                    client,
+                    authorId: aliceId,
+                    participantUserIds: [aliceId],
+                    length: 4,
+                });
+
+                expect(doesRoomOrThreadHaveUnreadMessages(thread)).toBe(true);
+            });
+        });
     });
 
     describe("doesRoomHaveUnreadThreads()", () => {

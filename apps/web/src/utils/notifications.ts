@@ -132,19 +132,32 @@ export async function clearRoomNotification(room: Room, client: MatrixClient): P
  * for. `inMainTimelineForReceipt` is the SDK's own classifier, used here so this cannot drift from
  * the decision `sendReceipt` will actually make.
  *
- * `replyToEvent` is checked as well as `lastReply`, because it is the only accessor that sees the
- * reply the server bundles with the root, and a thread that has not been paginated yet has nothing
- * else — which is the state every card in the threads feed starts in.
+ * The timeline is walked rather than `lastReply()` taken, because that matches only `m.thread`
+ * relations, while a thread's reactions sit in its timeline alongside its replies. A receipt is a
+ * claim about how far the user has got, so it should name the last thing they saw rather than the
+ * last thing that happened to be a reply — `.m.rule.reaction` is a default a user can turn off, and
+ * not every server counts what Synapse counts. It also matters that `lastReply` finds nothing at all
+ * in a thread with no reply left in its timeline, whether because nothing has been paginated yet or
+ * because redaction has removed the replies it would have matched: that is a receipt never sent.
+ *
+ * `replyToEvent` is checked after the timeline, because it is the only accessor that sees the reply
+ * the server bundles with the root, and a thread that has not been paginated yet has nothing else —
+ * which is the state every card in the threads feed starts in.
  */
 export function threadReceiptTarget(thread: Thread): MatrixEvent | null {
-    for (const candidate of [thread.lastReply(), thread.replyToEvent]) {
-        if (!candidate) continue;
-        if (inMainTimelineForReceipt(candidate)) continue;
+    const receiptable = (event: MatrixEvent): boolean =>
+        // Excludes the root and any reaction to it, both of which the SDK counts as main timeline.
+        !inMainTimelineForReceipt(event) &&
         // A local echo has no event ID the server would accept a receipt for.
-        if (candidate.status !== null) continue;
-        return candidate;
+        event.status === null;
+
+    const timeline = thread.timeline;
+    for (let index = timeline.length - 1; index >= 0; index--) {
+        if (receiptable(timeline[index])) return timeline[index];
     }
-    return null;
+
+    const bundled = thread.replyToEvent;
+    return bundled && receiptable(bundled) ? bundled : null;
 }
 
 /**
@@ -153,6 +166,10 @@ export function threadReceiptTarget(thread: Thread): MatrixEvent | null {
  * The room-level equivalent above sends an unthreaded receipt, which marks the main timeline and
  * every thread in the room at once. This sends a threaded one, so reading a thread out of the
  * cross-room feed does not silently mark a room the user has not looked at.
+ *
+ * The thread's counts are cleared whether or not a receipt can be sent, so that asking for a thread
+ * to be marked read always does something: a control that silently does nothing reads as broken,
+ * and the user has said they are finished with the thread either way.
  *
  * @param thread The thread to mark as read
  * @param room The room the thread belongs to
@@ -166,9 +183,10 @@ export async function clearThreadNotification(
     client: MatrixClient,
 ): Promise<EmptyObject | undefined> {
     const latest = threadReceiptTarget(thread);
-    if (!latest) return undefined;
 
     try {
+        if (!latest) return undefined;
+
         const receiptType = SettingsStore.getValue("sendReadReceipts", room.roomId)
             ? ReceiptType.Read
             : ReceiptType.ReadPrivate;

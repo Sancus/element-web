@@ -11,12 +11,15 @@ import {
     NotificationCountType,
     Room,
     type MatrixClient,
+    EventType,
     ReceiptType,
+    RelationType,
     type AccountDataEvents,
     type Thread,
     PendingEventOrdering,
     EventStatus,
 } from "matrix-js-sdk/src/matrix";
+import { synthesizeReceipt } from "matrix-js-sdk/src/models/read-receipt";
 import { type Mocked, mocked } from "jest-mock-vitest-adapter";
 
 import {
@@ -33,8 +36,9 @@ import {
     setMarkedUnreadState,
 } from "../../../src/utils/notifications";
 import { getMockClientWithEventEmitter, mockClientMethodsServer } from "../../test-utils/client";
-import { mkMessage, stubClient } from "../../test-utils/test-utils";
+import { mkEvent, mkMessage, stubClient } from "../../test-utils/test-utils";
 import { populateThread } from "../../test-utils/threads";
+import { determineUnreadState } from "../../../src/RoomNotifs";
 import { MatrixClientPeg } from "../../../src/MatrixClientPeg";
 import { NotificationLevel } from "../../../src/stores/notifications/NotificationLevel";
 import { SettingLevel } from "../../../src/settings/SettingLevel";
@@ -183,12 +187,15 @@ describe("notifications", () => {
         let room: Room;
         let sendReadReceiptSpy: jest.SpyInstance;
         const ROOM_ID = "!threads:example.org";
-        const USER_ID = "@bob:example.org";
+        // The stub client's own user, so that "the user" means the same person to the room, the
+        // events built here and the unread checks, which read `client.getSafeUserId()`.
+        let USER_ID: string;
 
         beforeEach(() => {
             stubClient();
             client = mocked(MatrixClientPeg.safeGet());
             client.supportsThreads = () => true;
+            USER_ID = client.getSafeUserId();
             room = new Room(ROOM_ID, client, USER_ID, { pendingEventOrdering: PendingEventOrdering.Detached });
             sendReadReceiptSpy = jest.spyOn(client, "sendReadReceipt").mockResolvedValue({});
             SettingsStore.setValue("sendReadReceipts", null, SettingLevel.DEVICE, true);
@@ -217,27 +224,172 @@ describe("notifications", () => {
             expect(unthreaded).toBeFalsy();
         });
 
+        /** A reaction to an event in the thread, which the SDK files in the thread's timeline. */
+        function reactTo(target: MatrixEvent, sender = "@alice:example.org"): MatrixEvent {
+            return mkEvent({
+                event: true,
+                type: EventType.Reaction,
+                user: sender,
+                room: ROOM_ID,
+                // Later than anything `populateThread` builds, so that these land at the end of the
+                // timeline on their own merits rather than on how the fixture happens to sort.
+                ts: Date.now(),
+                content: {
+                    "m.relates_to": { rel_type: RelationType.Annotation, event_id: target.getId(), key: "👍" },
+                },
+            });
+        }
+
+        it("sends a receipt against a reaction that arrived after the last reply", async () => {
+            // Reacting is the commonest last word in a thread, and it is not an `m.thread` relation,
+            // so receipting the last reply would leave the user's marker short of what they have
+            // actually seen.
+            const thread = await makeThread();
+            const reaction = reactTo(thread.lastReply()!);
+            thread.addEvent(reaction, false);
+
+            await clearThreadNotification(thread, room, client);
+
+            expect(sendReadReceiptSpy.mock.calls[0][0].getId()).toBe(reaction.getId());
+        });
+
+        it("sends a receipt past the user's own last reply to the reactions to it", async () => {
+            // The shape that surfaced this: the user has the last word and other people only react
+            // to it, so the thread's newest events are all reactions to something the user sent.
+            const thread = await makeThread();
+            const mine = mkEvent({
+                event: true,
+                type: EventType.RoomMessage,
+                user: USER_ID,
+                room: ROOM_ID,
+                content: {
+                    "msgtype": "m.text",
+                    "body": "the last word",
+                    "m.relates_to": { rel_type: RelationType.Thread, event_id: thread.id },
+                },
+            });
+            thread.addEvent(mine, false);
+            const reaction = reactTo(mine);
+            thread.addEvent(reaction, false);
+
+            await clearThreadNotification(thread, room, client);
+
+            expect(sendReadReceiptSpy.mock.calls[0][0].getId()).toBe(reaction.getId());
+        });
+
+        it("sends a receipt for a thread whose only activity since the last reply is reactions", async () => {
+            const thread = await makeThread();
+            const first = reactTo(thread.lastReply()!);
+            const second = reactTo(thread.lastReply()!, "@carol:example.org");
+            thread.addEvent(first, false);
+            thread.addEvent(second, false);
+
+            await clearThreadNotification(thread, room, client);
+
+            expect(sendReadReceiptSpy.mock.calls[0][0].getId()).toBe(second.getId());
+        });
+
+        it("leaves a thread read once the receipt it sends comes back", async () => {
+            // The symptom rather than the mechanism: a thread whose last word is somebody's reaction
+            // has to actually go quiet when the user marks it read.
+            const { thread } = await populateThread({
+                room,
+                client,
+                authorId: "@alice:example.org",
+                participantUserIds: ["@alice:example.org"],
+                length: 4,
+            });
+            const reaction = reactTo(thread.lastReply()!);
+            thread.addEvent(reaction, false);
+            expect(determineUnreadState(room, thread.id).level).not.toBe(NotificationLevel.None);
+
+            await clearThreadNotification(thread, room, client);
+            const receipted = sendReadReceiptSpy.mock.calls[0][0];
+            // Named rather than taken on trust: a receipt stopping at the last reply also reads as
+            // read here, so without this the test would pass on the behaviour it exists to rule out.
+            expect(receipted.getId()).toBe(reaction.getId());
+            room.addReceipt(synthesizeReceipt(USER_ID, receipted, ReceiptType.Read));
+
+            expect(determineUnreadState(room, thread.id).level).toBe(NotificationLevel.None);
+        });
+
+        it("receipts the newest reply left after one is redacted", async () => {
+            // The SDK drops a redacted event from the thread's timeline rather than keeping a
+            // tombstone, so the walk should find the reply before it and never see the hole.
+            const thread = await makeThread();
+            const settled = thread.timeline[thread.timeline.length - 2];
+            thread
+                .lastReply()!
+                .makeRedacted(
+                    mkEvent({ event: true, type: EventType.RoomRedaction, user: USER_ID, room: ROOM_ID, content: {} }),
+                    room,
+                );
+
+            await clearThreadNotification(thread, room, client);
+
+            expect(sendReadReceiptSpy.mock.calls[0][0].getId()).toBe(settled.getId());
+        });
+
+        it("never sends a receipt against a reaction to the thread root", async () => {
+            // Reactions to the root belong to the main timeline for receipt purposes, exactly as the
+            // root does, so one is no more markable from a per-thread control than the other.
+            const thread = await makeThread();
+            const rootReaction = reactTo(thread.rootEvent!);
+            jest.spyOn(thread, "timeline", "get").mockReturnValue([thread.rootEvent!, rootReaction]);
+            jest.spyOn(thread, "replyToEvent", "get").mockReturnValue(null);
+
+            await expect(clearThreadNotification(thread, room, client)).resolves.toBeUndefined();
+            expect(sendReadReceiptSpy).not.toHaveBeenCalled();
+        });
+
         it("never sends a receipt against the thread root", async () => {
             // The state a card in the feed starts in: the thread is known from the root's bundled
             // relations, and its own timeline has not been fetched yet. The SDK counts a thread
             // root as part of the main timeline, so a receipt against it would advance the room's
             // main-timeline receipt and mark messages the user has never opened.
             const thread = await makeThread();
-            jest.spyOn(thread, "lastReply").mockReturnValue(null);
+            jest.spyOn(thread, "timeline", "get").mockReturnValue([thread.rootEvent!]);
             jest.spyOn(thread, "replyToEvent", "get").mockReturnValue(thread.rootEvent!);
 
             await expect(clearThreadNotification(thread, room, client)).resolves.toBeUndefined();
             expect(sendReadReceiptSpy).not.toHaveBeenCalled();
         });
 
-        it("does not send a receipt for a reply that is still sending", async () => {
+        it("skips past a reply of the user's that is still sending", async () => {
+            // A thread shows the user's reply the moment they send it, so its echo really does sit
+            // at the end of the timeline for as long as the send takes. The echo has no event ID the
+            // server would take, but everything before it does, so the rest of the thread can still
+            // be marked read while the reply is in flight.
             const thread = await makeThread();
             const pending = thread.lastReply()!;
+            const settled = thread.timeline[thread.timeline.length - 2];
             pending.status = EventStatus.SENDING;
-            jest.spyOn(thread, "replyToEvent", "get").mockReturnValue(pending);
+
+            await clearThreadNotification(thread, room, client);
+
+            expect(sendReadReceiptSpy.mock.calls[0][0].getId()).toBe(settled.getId());
+        });
+
+        it("sends no receipt when there is nothing the server would accept one for", async () => {
+            const thread = await makeThread();
+            jest.spyOn(thread, "timeline", "get").mockReturnValue([]);
+            jest.spyOn(thread, "replyToEvent", "get").mockReturnValue(null);
 
             await expect(clearThreadNotification(thread, room, client)).resolves.toBeUndefined();
             expect(sendReadReceiptSpy).not.toHaveBeenCalled();
+        });
+
+        it("still clears the thread's counts when there is nothing to receipt", async () => {
+            // Otherwise asking for a thread to be marked read is a control that does nothing at all,
+            // which is indistinguishable from a broken one.
+            const thread = await makeThread();
+            room.setThreadUnreadNotificationCount(thread.id, NotificationCountType.Total, 3);
+            jest.spyOn(thread, "timeline", "get").mockReturnValue([]);
+            jest.spyOn(thread, "replyToEvent", "get").mockReturnValue(null);
+
+            await clearThreadNotification(thread, room, client);
+
+            expect(room.getThreadUnreadNotificationCount(thread.id, NotificationCountType.Total)).toBe(0);
         });
 
         it("sends a private receipt when read receipts are disabled", async () => {
