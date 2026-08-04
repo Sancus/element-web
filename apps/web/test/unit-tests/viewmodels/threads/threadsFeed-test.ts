@@ -185,7 +185,7 @@ describe("threadsFeed", () => {
             expect(hasReplied(thread, ME)).toBe(false);
         });
 
-        it("does not count reacting to a thread as replying in it", async () => {
+        it("counts reacting to a thread as answering it", async () => {
             const { thread, events } = await populateThread({
                 room,
                 client,
@@ -194,10 +194,37 @@ describe("threadsFeed", () => {
             });
             thread.addEvent(reactionFrom(ME, events[events.length - 1].getId()!), false);
 
-            // Asserted rather than assumed: the reaction only tells us anything about how replies are
-            // counted because the SDK files it in the thread's timeline next to them.
+            // Asserted rather than assumed: the reaction only tells us anything about how answers are
+            // counted because the SDK files it in the thread's timeline next to the replies.
             expect(thread.timeline.some((event) => event.getSender() === ME)).toBe(true);
+            expect(hasReplied(thread, ME)).toBe(true);
+        });
+
+        it("does not count somebody else reacting", async () => {
+            const { thread, events } = await populateThread({
+                room,
+                client,
+                authorId: OTHER,
+                participantUserIds: [OTHER],
+            });
+            thread.addEvent(reactionFrom(OTHER, events[events.length - 1].getId()!), false);
+
             expect(hasReplied(thread, ME)).toBe(false);
+        });
+
+        it("counts a reaction in a thread the user started", async () => {
+            // The participation flag is not trusted in a thread the user started, since it cannot
+            // tell answering from asking. The reaction has to be found in the timeline instead.
+            const { thread, events } = await populateThread({
+                room,
+                client,
+                authorId: ME,
+                participantUserIds: [OTHER],
+            });
+            jest.spyOn(thread, "hasCurrentUserParticipated", "get").mockReturnValue(false);
+            thread.addEvent(reactionFrom(ME, events[events.length - 1].getId()!), false);
+
+            expect(hasReplied(thread, ME)).toBe(true);
         });
 
         it("trusts the server's participation flag in a thread the user did not start", async () => {
