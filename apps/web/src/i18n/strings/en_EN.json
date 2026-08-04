@@ -3286,13 +3286,14 @@
         "empty_title": "No threads yet",
         "empty_unread_description": "You've read every thread you're following.",
         "empty_unread_title": "You're all caught up",
-        "filter_all": "All threads",
-        "filter_label": "Show: %(filter)s",
         "filter_mentions": "Mentions",
         "filter_unread": "Unread",
+        "filters_label": "Filter threads",
         "load_earlier": "Load earlier replies",
         "load_more": "Look for older threads",
         "loading": "Loading…",
+        "mark_all_read": "Mark all as read",
+        "mark_read": "Mark as read",
         "new_activity": "New activity — back to top",
         "reply_prompt": "Reply…",
         "searching": "Looking for your threads…",
@@ -3300,6 +3301,7 @@
             "one": "Show 1 more reply",
             "other": "Show %(count)s more replies"
         },
+        "thread_options": "Thread options",
         "view_in_room": "View in room"
     },
     "time": {

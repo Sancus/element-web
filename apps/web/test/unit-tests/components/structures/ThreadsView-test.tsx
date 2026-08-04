@@ -13,6 +13,7 @@ import { SDKContextClass } from "../../../../src/contexts/SDKContextClass";
 import { ThreadsView } from "../../../../src/components/structures/ThreadsView";
 import { type ThreadFeedEntry, ThreadsFeedFilter } from "../../../../src/viewmodels/threads/threadsFeed";
 import { NotificationLevel } from "../../../../src/stores/notifications/NotificationLevel";
+import { clearThreadNotification } from "../../../../src/utils/notifications";
 import { type ThreadsFeedState, useThreadsFeed } from "../../../../src/viewmodels/threads/useThreadsFeed";
 
 // The feed hook has its own suite; here it is a lever, so that this one is only about how the page
@@ -23,25 +24,32 @@ jest.mock("../../../../src/viewmodels/threads/useThreadsFeed", () => ({
 }));
 
 // A card renders a whole thread timeline and a composer, neither of which this is about. The stub
-// exposes the thread ID so the rendered order can be read back, and a way to expand it.
+// exposes the thread ID so the rendered order can be read back, and a way to activate it.
 jest.mock("../../../../src/components/views/threads/ThreadCard", () => ({
     __esModule: true,
     ThreadCard: ({
         entry,
-        onToggleExpanded,
+        onSetActive,
     }: {
         entry: ThreadFeedEntry;
-        onToggleExpanded: (threadId: string) => void;
+        onSetActive: (threadId: string | null) => void;
     }) => (
         <div data-testid="card" data-thread-id={entry.threadId}>
-            <button type="button" onClick={() => onToggleExpanded(entry.threadId)}>
+            <button type="button" onClick={() => onSetActive(entry.threadId)}>
                 expand {entry.threadId}
             </button>
         </div>
     ),
 }));
 
+jest.mock("../../../../src/utils/notifications", () => ({
+    __esModule: true,
+    ...jest.requireActual("../../../../src/utils/notifications"),
+    clearThreadNotification: jest.fn().mockResolvedValue({}),
+}));
+
 const mockedUseThreadsFeed = jest.mocked(useThreadsFeed);
+const mockedClearThreadNotification = jest.mocked(clearThreadNotification);
 
 /** The heights a real scroller would have; jsdom lays nothing out, so they are supplied. */
 interface Geometry {
@@ -129,10 +137,7 @@ describe("ThreadsView", () => {
 
     function chooseFilter(name: string): void {
         act(() => {
-            fireEvent.click(screen.getByRole("button", { name: /^Show:/ }));
-        });
-        act(() => {
-            fireEvent.click(screen.getByRole("menuitemradio", { name }));
+            fireEvent.click(screen.getByRole("option", { name }));
         });
     }
 
@@ -342,5 +347,67 @@ describe("ThreadsView", () => {
         chooseFilter("Unread");
 
         expect(renderedOrder()).toEqual(["a", "b", "c"]);
+    });
+
+    describe("marking everything read", () => {
+        const markAllRead = (): HTMLElement => screen.getByRole("button", { name: "Mark all as read" });
+
+        it("is offered as unavailable when there is nothing unread", () => {
+            renderView();
+
+            // Compound keeps disabled buttons focusable, so this is `aria-disabled` rather than
+            // the native attribute, and the handler still has to cope with being called.
+            expect(markAllRead()).toHaveAttribute("aria-disabled", "true");
+        });
+
+        it("does nothing when pressed with nothing unread", () => {
+            renderView();
+
+            act(() => {
+                fireEvent.click(markAllRead());
+            });
+
+            expect(mockedClearThreadNotification).not.toHaveBeenCalled();
+        });
+
+        it("marks each unread thread, and leaves the read ones alone", () => {
+            feed.entries = [
+                { ...feed.entries[0], level: NotificationLevel.Notification },
+                { ...feed.entries[1], level: NotificationLevel.None },
+                { ...feed.entries[2], level: NotificationLevel.Highlight },
+            ];
+            renderView();
+
+            act(() => {
+                fireEvent.click(markAllRead());
+            });
+
+            // A receipt per unread thread, because a room-level one would also mark the main
+            // timeline of a room the user has not looked at.
+            expect(mockedClearThreadNotification).toHaveBeenCalledTimes(2);
+            const marked = mockedClearThreadNotification.mock.calls.map(([thread]) => thread);
+            expect(marked).toEqual([feed.entries[0].thread, feed.entries[2].thread]);
+        });
+
+        it("leaves threads with a failed message alone", async () => {
+            // `Unsent` outranks the read levels, so a plain "greater than None" test counts a
+            // thread whose message failed to send as unread. A receipt cannot clear that — the
+            // level comes from the pending event — so the button would stay lit and appear to do
+            // nothing, sending a fresh round of receipts on every press.
+            feed.entries = [
+                { ...feed.entries[0], level: NotificationLevel.Unsent },
+                { ...feed.entries[1], level: NotificationLevel.None },
+                { ...feed.entries[2], level: NotificationLevel.Unsent },
+            ];
+            renderView();
+
+            expect(markAllRead()).toHaveAttribute("aria-disabled", "true");
+
+            act(() => {
+                fireEvent.click(markAllRead());
+            });
+
+            expect(mockedClearThreadNotification).not.toHaveBeenCalled();
+        });
     });
 });

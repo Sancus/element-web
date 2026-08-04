@@ -256,6 +256,16 @@ export class Helpers {
     async openThreadsPage() {
         await this.getThreadsNavButton().click();
         await expect(this.getThreadsPage()).toBeVisible();
+
+        // The room list's release announcement is a floating popover anchored next to the left
+        // panel, and it reaches far enough across to swallow clicks aimed at the feed's own filter
+        // chips. Other suites dismiss it in a `beforeEach`; here it only matters once the page is
+        // open, and dismissing it is cheap enough to do on the way in.
+        const announcement = this.page.getByRole("dialog", { name: "Introducing Sections" });
+        if (await announcement.isVisible()) {
+            await announcement.getByRole("button", { name: "OK" }).click();
+            await expect(announcement).not.toBeVisible();
+        }
     }
 
     /**
@@ -345,11 +355,22 @@ export class Helpers {
     }
 
     /**
-     * Choose an option from the feed's filter dropdown
+     * Choose one of the feed's filter chips, or clear the current one.
+     *
+     * There is no "All threads" chip: the unfiltered feed is what no selection means, so getting
+     * back to it is a matter of switching whichever chip is on back off again.
      */
     async setFilter(name: "All threads" | "Unread" | "Mentions") {
-        await this.getThreadsPage().getByRole("button", { name: "Show:" }).click();
-        await this.page.getByRole("menuitemradio", { name }).click();
+        const filters = this.getThreadsPage().getByRole("listbox", { name: "Filter threads" });
+        if (name === "All threads") {
+            const selected = filters.getByRole("option", { selected: true });
+            if ((await selected.count()) > 0) await selected.click();
+            await expect(filters.getByRole("option", { selected: true })).toHaveCount(0);
+            return;
+        }
+
+        await filters.getByRole("option", { name }).click();
+        await expect(filters.getByRole("option", { name })).toHaveAttribute("aria-selected", "true");
     }
 
     /**

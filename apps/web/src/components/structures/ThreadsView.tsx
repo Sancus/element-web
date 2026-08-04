@@ -8,14 +8,18 @@
 import React, { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ThreadsIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { AutoHideScrollbar } from "@element-hq/web-shared-components";
-import { Heading } from "@vector-im/compound-web";
+import { Button, Heading } from "@vector-im/compound-web";
+import { logger } from "matrix-js-sdk/src/logger";
 
 import { _t } from "../../languageHandler";
 import { SDKContext } from "../../contexts/SDKContext";
+import { useMatrixClientContext } from "../../contexts/MatrixClientContext";
+import { isClearableByReceipt } from "../../stores/notifications/NotificationLevel";
+import { clearThreadNotification } from "../../utils/notifications";
 import { applyHeldOrder, ThreadsFeedFilter } from "../../viewmodels/threads/threadsFeed";
 import { useThreadsFeed } from "../../viewmodels/threads/useThreadsFeed";
 import { ThreadCard } from "../views/threads/ThreadCard";
-import { ThreadsViewFilterMenu } from "../views/threads/ThreadsViewFilterMenu";
+import { ThreadsViewFilters } from "../views/threads/ThreadsViewFilters";
 import EmptyState from "../views/right_panel/EmptyState";
 import Spinner from "../views/elements/Spinner";
 
@@ -25,6 +29,8 @@ const RENDER_BATCH = 20;
 const SCROLL_THRESHOLD_PX = 600;
 /** Scroll offset, in pixels, still counted as being at the top of the feed. */
 const AT_TOP_THRESHOLD_PX = 8;
+/** Read receipts sent at once when marking the feed read. */
+const MARK_READ_BATCH = 10;
 
 /**
  * A cross-room feed of threads the user takes part in.
@@ -37,13 +43,14 @@ const AT_TOP_THRESHOLD_PX = 8;
  */
 export function ThreadsView(): JSX.Element {
     const sdkContext = useContext(SDKContext);
+    const client = useMatrixClientContext();
     const [filter, setFilter] = useState<ThreadsFeedFilter>(ThreadsFeedFilter.All);
     const [renderCount, setRenderCount] = useState(RENDER_BATCH);
-    const [expandedThreadId, setExpandedThreadId] = useState<string | null>(null);
+    const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
 
-    // The expanded thread is exempt from filtering: reading it is what makes it stop matching
+    // The active thread is exempt from filtering: reading it is what makes it stop matching
     // "Unread", and a card that deletes itself as it is read takes the composer with it.
-    const { entries, backfilling, hasMore, loadMore, initialised } = useThreadsFeed(filter, expandedThreadId);
+    const { entries, backfilling, hasMore, loadMore, initialised } = useThreadsFeed(filter, activeThreadId);
 
     /** Whether the feed is scrolled to the top, where re-sorting is safe to show. */
     const [atTop, setAtTop] = useState(true);
@@ -68,7 +75,7 @@ export function ThreadsView(): JSX.Element {
     // newly arrived threads wait at the end, until the feed is scrolled back to the top with
     // nothing expanded — which is also when a thread jumping to the top reads as new activity
     // rather than as the page shuffling itself.
-    const frozen = expandedThreadId !== null || !atTop;
+    const frozen = activeThreadId !== null || !atTop;
     const ordered = useMemo(
         () => (frozen ? applyHeldOrder(entries, paintedOrder.current) : entries),
         [entries, frozen],
@@ -88,10 +95,10 @@ export function ThreadsView(): JSX.Element {
     // all it takes to release it. A hold caused by an expanded card is deliberately silent — the
     // only way to release that is to collapse the card, which throws away the reply being written.
     const stale = useMemo(() => {
-        if (atTop || expandedThreadId !== null) return false;
+        if (atTop || activeThreadId !== null) return false;
         if (ordered.length !== entries.length) return true;
         return ordered.some((entry, index) => entry.threadId !== entries[index].threadId);
-    }, [atTop, expandedThreadId, ordered, entries]);
+    }, [atTop, activeThreadId, ordered, entries]);
 
     const onShowNewActivity = useCallback(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -131,11 +138,35 @@ export function ThreadsView(): JSX.Element {
         // Collapsing is included because an expanded card is the tallest thing in the feed, so
         // collapsing one shrinks the content most, and otherwise this would be relying on the
         // browser to fire a scroll event when it clamps the offset it has invalidated.
-    }, [advance, ordered.length, renderCount, expandedThreadId]);
+    }, [advance, ordered.length, renderCount, activeThreadId]);
 
-    const onToggleExpanded = useCallback((threadId: string) => {
-        setExpandedThreadId((current) => (current === threadId ? null : threadId));
-    }, []);
+    const unreadEntries = useMemo(() => entries.filter((entry) => isClearableByReceipt(entry.level)), [entries]);
+
+    const [markingAllRead, setMarkingAllRead] = useState(false);
+
+    // Only marks what the feed knows about. Backfill is still walking the account in the
+    // background, so this is "everything on this page" rather than "every thread you have" — which
+    // is also the only promise a button on this page can honestly make.
+    const onMarkAllRead = useCallback(async () => {
+        setMarkingAllRead(true);
+        try {
+            // One receipt per unread thread, and an account can have hundreds. Fired all at once
+            // they are hundreds of simultaneous requests to the homeserver, so they go out in
+            // batches instead — slower to finish, but it does not stall the rest of the client
+            // behind a queue of its own making.
+            for (let i = 0; i < unreadEntries.length; i += MARK_READ_BATCH) {
+                await Promise.all(
+                    unreadEntries.slice(i, i + MARK_READ_BATCH).map((entry) =>
+                        clearThreadNotification(entry.thread, entry.room, client).catch((e) => {
+                            logger.warn(`ThreadsView: failed to mark thread ${entry.threadId} read`, e);
+                        }),
+                    ),
+                );
+            }
+        } finally {
+            setMarkingAllRead(false);
+        }
+    }, [unreadEntries, client]);
 
     const emptyState = useMemo(() => {
         switch (filter) {
@@ -175,10 +206,21 @@ export function ThreadsView(): JSX.Element {
     return (
         <main className="mx_ThreadsView" aria-label={_t("common|threads")}>
             <header className="mx_ThreadsView_header">
-                <Heading as="h1" size="md" className="mx_ThreadsView_heading">
-                    {_t("common|threads")}
-                </Heading>
-                <ThreadsViewFilterMenu filter={filter} onChange={setFilter} />
+                <div className="mx_ThreadsView_headerRow">
+                    <Heading as="h1" size="md" className="mx_ThreadsView_heading">
+                        {_t("common|threads")}
+                    </Heading>
+                    <Button
+                        kind="tertiary"
+                        size="md"
+                        className="mx_ThreadsView_markAllRead"
+                        disabled={unreadEntries.length === 0 || markingAllRead}
+                        onClick={() => void onMarkAllRead()}
+                    >
+                        {_t("threads_view|mark_all_read")}
+                    </Button>
+                </div>
+                <ThreadsViewFilters filter={filter} onChange={setFilter} />
             </header>
 
             <AutoHideScrollbar
@@ -215,8 +257,8 @@ export function ThreadsView(): JSX.Element {
                     <ThreadCard
                         key={entry.threadId}
                         entry={entry}
-                        expanded={expandedThreadId === entry.threadId}
-                        onToggleExpanded={onToggleExpanded}
+                        active={activeThreadId === entry.threadId}
+                        onSetActive={setActiveThreadId}
                         resizeNotifier={sdkContext.resizeNotifier}
                     />
                 ))}
