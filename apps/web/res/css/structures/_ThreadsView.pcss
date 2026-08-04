@@ -258,6 +258,20 @@
     font: var(--cpd-font-body-md-medium);
 }
 
+/* Grouped with the replies it reveals rather than with the message it follows, which needs more
+   room above the link than below it. */
+.mx_ThreadCard_showMore {
+    margin-top: var(--cpd-space-4x);
+    margin-bottom: 0;
+}
+
+/* The space below the link comes from the following tile's own padding, so the tile gives most of
+   it up. Reaching down from the link with a negative margin would close the same gap, but it lays
+   the tile's box over the link and the tile takes the clicks with it. */
+.mx_ThreadCard_events .mx_ThreadCard_control + .mx_EventTile[data-layout="group"] {
+    padding-block-start: var(--cpd-space-1x);
+}
+
 /* This one sits in the card header, next to the timestamp, and takes its size from there. */
 .mx_ThreadCard_collapse {
     flex-shrink: 0;

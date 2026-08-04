@@ -127,6 +127,30 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await expect(util.getThreadCard("Msg3").getByRole("button", { name: "Collapse thread" })).toHaveCount(0);
     });
 
+    test("should expand a thread from the hidden reply count", async ({ room1, util, msg }) => {
+        await util.goTo(room1);
+        // Enough replies that the collapsed card hides some behind the count. The other tests
+        // reach the expanded state through the reply prompt, so without this one the count is
+        // never actually clicked, and it can stop taking clicks without anything failing.
+        await util.receiveMessages(room1, [
+            "Msg1",
+            msg.threadedOff("Msg1", "Reply1"),
+            msg.threadedOff("Msg1", "Reply2"),
+            msg.threadedOff("Msg1", "Reply3"),
+            msg.threadedOff("Msg1", "Reply4"),
+        ]);
+        await util.sendMessages(room1, [msg.threadedOff("Msg1", "Mine")]);
+
+        await util.openThreadsPage();
+        const card = util.getThreadCard("Msg1");
+        const showMore = card.getByRole("button", { name: /^Show \d+ more repl/ });
+        await expect(showMore).toBeVisible();
+        await showMore.click();
+
+        await expect(card.getByRole("button", { name: "Collapse thread" })).toBeVisible();
+        await expect(card).toContainText("Reply1");
+    });
+
     test("should clear the thread's unread state once read", async ({ room1, util, msg, page, user }) => {
         await util.goTo(room1);
         await util.receiveThreadMentioningUser(room1, msg, user, "Msg1");
