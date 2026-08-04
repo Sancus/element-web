@@ -15,6 +15,22 @@
     background-color: $background;
 }
 
+/* Element does not reset the user agent's button chrome, so every bare button in this view arrives
+   with a border, a grey fill and a rounded box of its own, whether or not it wants one. Listed by
+   name rather than as a descendant selector, which would also strip the composer's and the event
+   tiles' own buttons. The rules below opt each control back in to the box it actually wants. */
+.mx_ThreadsView_newActivityButton,
+.mx_ThreadsView_loadMore,
+.mx_ThreadCard_roomButton,
+.mx_ThreadCard_replyPrompt,
+.mx_ThreadCard_collapse,
+.mx_ThreadCard_loadEarlier,
+.mx_ThreadCard_showMore {
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
 .mx_ThreadsView_header {
     display: flex;
     align-items: center;
@@ -75,6 +91,15 @@
     display: flex;
     flex-direction: column;
     gap: var(--cpd-space-6x);
+    /* The quiet surface, so that the cards on it are the ones that read as paper. The header keeps
+       the page background, as the room view's does. */
+    background-color: $system;
+
+    /* With no cards there is nothing for the quiet surface to sit behind, and the shared empty
+       state's icon is set on that same grey, so it would disappear into it. */
+    &:has(.mx_EmptyState) {
+        background-color: $background;
+    }
 }
 
 .mx_ThreadsView_spinner {
@@ -202,13 +227,18 @@
     flex-direction: column;
     border: 1px solid $separator;
     border-radius: var(--cpd-space-3x);
-    background-color: $system;
+    /* Lifted off the scroller's surface rather than sunk into it: a card is where the conversation
+       is, so it takes the same background the timeline has in a room. */
+    background-color: $background;
     padding: var(--cpd-space-3x) 0;
     overflow: hidden;
 }
 
+/* Raised rather than ringed. Which card is open is already obvious from the composer and the full
+   run of replies, so an accent border only adds a heavy coloured box to a view whose whole point
+   is a quiet stack of cards. Literal shadow because Compound exposes no token for one. */
 .mx_ThreadCard_expanded .mx_ThreadCard_body {
-    border-color: $accent;
+    box-shadow: 0 4px 24px 0 rgb(27, 29, 34, 0.1);
 }
 
 /* EventTile renders as an li in thread mode, so the events are a real list. */
@@ -224,17 +254,13 @@
     list-style: none;
 }
 
-/* Text links rather than buttons. Element does not reset the user agent's button chrome, so
-   without this these three carry a border, a grey fill and a rounded box, which is far heavier
-   than a count of replies or a collapse control deserves next to the messages themselves. */
+/* Text links: a count of replies or a collapse control does not deserve a box next to the messages
+   themselves. */
 .mx_ThreadCard_collapse,
 .mx_ThreadCard_loadEarlier,
 .mx_ThreadCard_showMore {
     padding: 0;
-    border: none;
-    background: none;
     color: $accent;
-    cursor: pointer;
 
     &:hover {
         text-decoration: underline;
