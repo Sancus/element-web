@@ -81,10 +81,10 @@ export class RoomUploadViewModel
             this.uploadSelectFns.set(option.type, option.onSelected);
         }
         this.uploadSelectFns.set("local", this.openUploadDialog);
-        room.on(RoomEvent.CurrentStateUpdated, this.onRoomCurrentStateUpdated);
+        // `trackListener` subscribes as well as arranging the removal, so a bare `on` alongside it
+        // registers the handler twice and leaves one behind on dispose.
         this.disposables.trackListener(room, RoomEvent.CurrentStateUpdated, this.onRoomCurrentStateUpdated);
 
-        moduleComposerApi.on(ModuleComposerApiEvents.UploaderOptionsChanged, this.onUploaderOptionsChanged);
         this.disposables.trackListener(
             moduleComposerApi,
             ModuleComposerApiEvents.UploaderOptionsChanged,
