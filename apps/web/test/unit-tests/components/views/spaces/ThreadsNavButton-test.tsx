@@ -60,6 +60,43 @@ describe("ThreadsNavButton", () => {
         expect(dispatch).toHaveBeenCalledWith({ action: Action.ViewThreadsPage });
     });
 
+    describe("pressed a second time, on the page it opened", () => {
+        it("returns to the room the user left to get here", async () => {
+            localStorage.setItem("mx_last_room_id", "!last:example.org");
+            const dispatch = jest.spyOn(defaultDispatcher, "dispatch");
+            renderButton({ isActive: true });
+
+            await userEvent.click(screen.getByRole("button", { name: "Threads" }));
+
+            expect(dispatch).toHaveBeenCalledWith({
+                action: Action.ViewRoom,
+                room_id: "!last:example.org",
+                metricsTrigger: undefined,
+            });
+        });
+
+        it("falls back to home when there is no room to go back to", async () => {
+            // Opened straight into threads, so nothing was left behind to return to.
+            localStorage.removeItem("mx_last_room_id");
+            const dispatch = jest.spyOn(defaultDispatcher, "dispatch");
+            renderButton({ isActive: true });
+
+            await userEvent.click(screen.getByRole("button", { name: "Threads" }));
+
+            expect(dispatch).toHaveBeenCalledWith({ action: Action.ViewHomePage });
+        });
+
+        it("does not navigate away when it is not the current page", async () => {
+            localStorage.setItem("mx_last_room_id", "!last:example.org");
+            const dispatch = jest.spyOn(defaultDispatcher, "dispatch");
+            renderButton({ isActive: false });
+
+            await userEvent.click(screen.getByRole("button", { name: "Threads" }));
+
+            expect(dispatch).toHaveBeenCalledWith({ action: Action.ViewThreadsPage });
+        });
+    });
+
     it("marks itself as the current page when active", () => {
         renderButton({ isActive: true });
 
