@@ -224,20 +224,6 @@
     list-style: none;
 }
 
-.mx_ThreadCard_showMore,
-.mx_ThreadCard_loadEarlier {
-    align-self: flex-start;
-    /* Indented to the message text column, so the count reads as part of the conversation rather
-       than as a control bolted to the side of it. The tile's own 8px padding is the other half of
-       the offset, as the variable's definition in _EventTile.pcss records. */
-    margin: var(--cpd-space-1x) var(--cpd-space-4x) var(--cpd-space-1x)
-        calc(var(--ThreadView_group_spacing-start) + 8px);
-}
-
-.mx_ThreadCard_collapse {
-    flex-shrink: 0;
-}
-
 /* Text links rather than buttons. Element does not reset the user agent's button chrome, so
    without this these three carry a border, a grey fill and a rounded box, which is far heavier
    than a count of replies or a collapse control deserves next to the messages themselves. */
@@ -248,7 +234,6 @@
     border: none;
     background: none;
     color: $accent;
-    font: var(--cpd-font-body-sm-medium);
     cursor: pointer;
 
     &:hover {
@@ -260,6 +245,23 @@
         text-decoration: none;
         cursor: default;
     }
+}
+
+/* These two sit in among the messages, so they take the size of the message text and start on the
+   avatars' edge rather than the text's: indenting them to the text column made them read as a
+   caption hanging off the messages instead of a line of the conversation. The indent is the same
+   padding the event tiles carry, which is what puts the avatars where they are. */
+.mx_ThreadCard_showMore,
+.mx_ThreadCard_loadEarlier {
+    align-self: flex-start;
+    margin: var(--cpd-space-1x) var(--cpd-space-4x) var(--cpd-space-1x) var(--cpd-space-2x);
+    font: var(--cpd-font-body-md-medium);
+}
+
+/* This one sits in the card header, next to the timestamp, and takes its size from there. */
+.mx_ThreadCard_collapse {
+    flex-shrink: 0;
+    font: var(--cpd-font-body-sm-medium);
 }
 
 .mx_ThreadCard_replyPrompt {
