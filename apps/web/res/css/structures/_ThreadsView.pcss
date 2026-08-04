@@ -203,6 +203,14 @@
     white-space: nowrap;
 }
 
+/* Plain text rather than a chip: the dot beside it is already the header's attention mark, and a
+   second bordered thing next to it would compete for the same glance. */
+.mx_ThreadCard_unreplied {
+    flex-shrink: 0;
+    color: $secondary-content;
+    font: var(--cpd-font-body-sm-medium);
+}
+
 /* Pushed to the trailing edge, taking the menu and collapse control after it. */
 .mx_ThreadCard_lastActivity {
     margin-inline-start: auto;

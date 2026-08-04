@@ -390,8 +390,10 @@ export const ThreadCard = memo(function ThreadCard({
     const receiptedEventId = useRef<string | null>(null);
     const latestEventId = threadReceiptTarget(thread)?.getId();
     const markRead = useCallback(() => {
-        const eventId = threadReceiptTarget(thread)?.getId();
-        if (!eventId) return;
+        // Called even with nothing to receipt — a thread holding nothing but its root and the
+        // reactions to it, say — because clearing the thread's counts is worth doing on its own,
+        // and a menu item that does nothing at all is indistinguishable from a broken one.
+        const eventId = threadReceiptTarget(thread)?.getId() ?? null;
         receiptedEventId.current = eventId;
         clearThreadNotification(thread, room, client).catch((e) => {
             logger.warn(`ThreadCard: failed to send read receipt for thread ${thread.id}`, e);
@@ -706,6 +708,15 @@ export const ThreadCard = memo(function ThreadCard({
                     </button>
                     {entry.level > NotificationLevel.None && (
                         <StatelessNotificationBadge level={entry.level} count={0} symbol={null} forceDot={true} />
+                    )}
+                    {/* Only where never having replied means something is owed: someone named the user
+                        and got no answer. Most of the feed has never been replied to, so labelling all
+                        of it would put a label on nearly every card for saying nothing — which is also
+                        why this is not called "Never Replied" after the filter that finds all of them. */}
+                    {entry.mentioned && !entry.replied && (
+                        <span className="mx_ThreadCard_unreplied" title={_t("threads_view|status_waiting_detail")}>
+                            {_t("threads_view|status_waiting")}
+                        </span>
                     )}
                     {/* The feed is sorted by recency and spans every room, so a card needs to say
                         when it was last active. Event tiles alone cannot: they show time of day,

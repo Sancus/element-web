@@ -16,7 +16,7 @@ import { SDKContext } from "../../contexts/SDKContext";
 import { useMatrixClientContext } from "../../contexts/MatrixClientContext";
 import { isClearableByReceipt } from "../../stores/notifications/NotificationLevel";
 import { clearThreadNotification } from "../../utils/notifications";
-import { applyHeldOrder, ThreadsFeedFilter } from "../../viewmodels/threads/threadsFeed";
+import { applyHeldOrder, ThreadsFeedFilter, type ThreadsFeedFilters } from "../../viewmodels/threads/threadsFeed";
 import { useThreadsFeed } from "../../viewmodels/threads/useThreadsFeed";
 import { ThreadCard } from "../views/threads/ThreadCard";
 import { ThreadsViewFilters } from "../views/threads/ThreadsViewFilters";
@@ -31,6 +31,8 @@ const SCROLL_THRESHOLD_PX = 600;
 const AT_TOP_THRESHOLD_PX = 8;
 /** Read receipts sent at once when marking the feed read. */
 const MARK_READ_BATCH = 10;
+/** No filters, which is the whole feed. */
+const NO_FILTERS: ThreadsFeedFilters = new Set();
 
 /**
  * A cross-room feed of threads the user takes part in.
@@ -44,13 +46,13 @@ const MARK_READ_BATCH = 10;
 export function ThreadsView(): JSX.Element {
     const sdkContext = useContext(SDKContext);
     const client = useMatrixClientContext();
-    const [filter, setFilter] = useState<ThreadsFeedFilter>(ThreadsFeedFilter.All);
+    const [filters, setFilters] = useState<ThreadsFeedFilters>(NO_FILTERS);
     const [renderCount, setRenderCount] = useState(RENDER_BATCH);
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
 
     // The active thread is exempt from filtering: reading it is what makes it stop matching
     // "Unread", and a card that deletes itself as it is read takes the composer with it.
-    const { entries, backfilling, hasMore, loadMore, initialised } = useThreadsFeed(filter, activeThreadId);
+    const { entries, backfilling, hasMore, loadMore, initialised } = useThreadsFeed(filters, activeThreadId);
 
     /** Whether the feed is scrolled to the top, where re-sorting is safe to show. */
     const [atTop, setAtTop] = useState(true);
@@ -66,7 +68,7 @@ export function ThreadsView(): JSX.Element {
         setRenderCount(RENDER_BATCH);
         setAtTop(true);
         if (scrollRef.current) scrollRef.current.scrollTop = 0;
-    }, [filter]);
+    }, [filters]);
 
     // The feed is sorted by latest activity, so a reply arriving anywhere in the account can move
     // cards. That is only acceptable while the user is at the top and can see it happen: further
@@ -75,7 +77,17 @@ export function ThreadsView(): JSX.Element {
     // newly arrived threads wait at the end, until the feed is scrolled back to the top with
     // nothing expanded — which is also when a thread jumping to the top reads as new activity
     // rather than as the page shuffling itself.
-    const frozen = activeThreadId !== null || !atTop;
+    //
+    // Tested for on screen rather than merely set, because a card can leave the feed while it is
+    // the active one — its room hidden or left, its root redacted — and it unmounts without
+    // getting to say so. A hold left down by a card that is gone is one the user cannot release:
+    // collapsing it is the only way, and there is nothing left to collapse. Being in the feed is
+    // the same thing as being rendered here, which is what `visible` below guarantees.
+    const activeOnScreen = useMemo(
+        () => activeThreadId !== null && entries.some((entry) => entry.threadId === activeThreadId),
+        [activeThreadId, entries],
+    );
+    const frozen = activeOnScreen || !atTop;
     const ordered = useMemo(
         () => (frozen ? applyHeldOrder(entries, paintedOrder.current) : entries),
         [entries, frozen],
@@ -95,17 +107,26 @@ export function ThreadsView(): JSX.Element {
     // all it takes to release it. A hold caused by an expanded card is deliberately silent — the
     // only way to release that is to collapse the card, which throws away the reply being written.
     const stale = useMemo(() => {
-        if (atTop || activeThreadId !== null) return false;
+        if (atTop || activeOnScreen) return false;
         if (ordered.length !== entries.length) return true;
         return ordered.some((entry, index) => entry.threadId !== entries[index].threadId);
-    }, [atTop, activeThreadId, ordered, entries]);
+    }, [atTop, activeOnScreen, ordered, entries]);
 
     const onShowNewActivity = useCallback(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = 0;
         setAtTop(true);
     }, []);
 
-    const visible = useMemo(() => ordered.slice(0, renderCount), [ordered, renderCount]);
+    // The active card is rendered wherever it ranks, not only if it falls inside the window.
+    // Filtering re-windows to the first batch, and a card holding a reply being written must survive
+    // that: the draft exists only in the mounted composer, and click-away deliberately will not
+    // discard it. Nothing extra gets rendered by this — a card can only be made active by being
+    // clicked, so its rank is one the window already reached a moment ago.
+    const visible = useMemo(() => {
+        const activeIndex =
+            activeThreadId === null ? -1 : ordered.findIndex((entry) => entry.threadId === activeThreadId);
+        return ordered.slice(0, Math.max(renderCount, activeIndex + 1));
+    }, [ordered, renderCount, activeThreadId]);
     const canRenderMore = renderCount < ordered.length;
     const isEmpty = visible.length === 0;
     /** Whether anything could still arrive: the first scan, or rooms left to search. */
@@ -168,8 +189,33 @@ export function ThreadsView(): JSX.Element {
         }
     }, [unreadEntries, client]);
 
+    // A single filter can say something specific about what is missing. Combinations would need a
+    // string each to do the same, so they share one that names none of them.
     const emptyState = useMemo(() => {
-        switch (filter) {
+        if (filters.size === 0) {
+            return (
+                <EmptyState
+                    Icon={ThreadsIcon}
+                    title={_t("threads_view|empty_title")}
+                    description={_t("threads_view|empty_description", {
+                        replyInThread: _t("action|reply_in_thread"),
+                    })}
+                />
+            );
+        }
+
+        if (filters.size > 1) {
+            return (
+                <EmptyState
+                    Icon={ThreadsIcon}
+                    title={_t("threads_view|empty_filtered_title")}
+                    description={_t("threads_view|empty_filtered_description")}
+                />
+            );
+        }
+
+        const [only] = filters;
+        switch (only) {
             case ThreadsFeedFilter.Unread:
                 return (
                     <EmptyState
@@ -186,22 +232,20 @@ export function ThreadsView(): JSX.Element {
                         description={_t("threads_view|empty_mentions_description")}
                     />
                 );
-            case ThreadsFeedFilter.All:
+            case ThreadsFeedFilter.Unreplied:
                 return (
                     <EmptyState
                         Icon={ThreadsIcon}
-                        title={_t("threads_view|empty_title")}
-                        description={_t("threads_view|empty_description", {
-                            replyInThread: _t("action|reply_in_thread"),
-                        })}
+                        title={_t("threads_view|empty_unreplied_title")}
+                        description={_t("threads_view|empty_unreplied_description")}
                     />
                 );
             default: {
-                const exhaustive: never = filter;
+                const exhaustive: never = only;
                 throw new Error(`Unhandled threads feed filter: ${exhaustive}`);
             }
         }
-    }, [filter]);
+    }, [filters]);
 
     return (
         <main className="mx_ThreadsView" aria-label={_t("common|threads")}>
@@ -220,7 +264,7 @@ export function ThreadsView(): JSX.Element {
                         {_t("threads_view|mark_all_read")}
                     </Button>
                 </div>
-                <ThreadsViewFilters filter={filter} onChange={setFilter} />
+                <ThreadsViewFilters filters={filters} onChange={setFilters} />
             </header>
 
             <AutoHideScrollbar

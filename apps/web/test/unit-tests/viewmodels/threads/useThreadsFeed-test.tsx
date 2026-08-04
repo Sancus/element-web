@@ -21,7 +21,7 @@ import MatrixClientContext from "../../../../src/contexts/MatrixClientContext";
 import { stubClient } from "../../../test-utils";
 import { populateThread } from "../../../test-utils/threads";
 import { useThreadsFeed } from "../../../../src/viewmodels/threads/useThreadsFeed";
-import { ThreadsFeedFilter } from "../../../../src/viewmodels/threads/threadsFeed";
+import { type ThreadsFeedFilters } from "../../../../src/viewmodels/threads/threadsFeed";
 
 const ME = "@me:example.org";
 const OTHER = "@other:example.org";
@@ -57,8 +57,8 @@ describe("useThreadsFeed", () => {
         return room;
     }
 
-    function renderFeed(filter = ThreadsFeedFilter.All) {
-        return renderHook(() => useThreadsFeed(filter), {
+    function renderFeed(filters: ThreadsFeedFilters = new Set()) {
+        return renderHook(() => useThreadsFeed(filters), {
             wrapper: ({ children }) => (
                 <MatrixClientContext.Provider value={client}>{children}</MatrixClientContext.Provider>
             ),

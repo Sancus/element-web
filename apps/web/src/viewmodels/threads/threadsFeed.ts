@@ -5,21 +5,35 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import { type MatrixClient, type MatrixEvent, type Room, type Thread } from "matrix-js-sdk/src/matrix";
+import {
+    EventStatus,
+    type MatrixClient,
+    type MatrixEvent,
+    RelationType,
+    type Room,
+    type Thread,
+} from "matrix-js-sdk/src/matrix";
 
 import { NotificationLevel } from "../../stores/notifications/NotificationLevel";
 import { determineUnreadState } from "../../RoomNotifs";
 import { isRoomVisible } from "../../stores/room-list-v3/isRoomVisible";
 
 /**
- * How the threads feed is filtered. Held in component state only: deliberately not
+ * A way the threads feed can be narrowed. Held in component state only: deliberately not
  * persisted, so no fork-specific keys end up in storage shared with other Matrix clients.
  */
 export enum ThreadsFeedFilter {
-    All,
-    Unread,
-    Mentions,
+    Unread = "unread",
+    Mentions = "mentions",
+    Unreplied = "unreplied",
 }
+
+/**
+ * The filters currently applied. Any combination is valid and they narrow together, so
+ * "Unread" and "Mentions" together means unread mentions. Empty means the whole feed, which is
+ * why there is no "All" filter to select.
+ */
+export type ThreadsFeedFilters = ReadonlySet<ThreadsFeedFilter>;
 
 /** A single thread in the cross-room threads feed. */
 export interface ThreadFeedEntry {
@@ -34,6 +48,8 @@ export interface ThreadFeedEntry {
     participated: boolean;
     /** Whether any loaded event in the thread mentions the current user. */
     mentioned: boolean;
+    /** Whether the current user has replied in this thread. Starting it does not count. */
+    replied: boolean;
 }
 
 /**
@@ -48,6 +64,40 @@ export function hasParticipated(thread: Thread, userId: string): boolean {
     if (thread.hasCurrentUserParticipated) return true;
     if (thread.rootEvent?.getSender() === userId) return true;
     return thread.timeline.some((event) => event.getSender() === userId);
+}
+
+/**
+ * Whether the current user has replied in a thread.
+ *
+ * Starting a thread is not replying in it: the point of knowing is to find threads still waiting
+ * on the user, and a question they asked themselves is not one of them. A reply still in flight
+ * counts, so a card does not claim to be unanswered while the answer is being sent; one that
+ * failed to send does not.
+ *
+ * The loaded timeline is checked before the server's `current_user_participated`, because that
+ * flag cannot distinguish a reply from having started the thread. It is only trusted for threads
+ * the user did not start, where it is the sole way to know about a reply in history this client has
+ * never loaded. The cost is that a thread the user started and answered long enough ago for the
+ * answer to be unloaded reads as unanswered until the card is opened, which loads it. That is the
+ * safer way round to be wrong: it over-reports what is waiting on the user rather than hiding it.
+ */
+export function hasReplied(thread: Thread, userId: string): boolean {
+    // A thread's timeline carries the reactions and edits aimed at it as well as its replies, so
+    // sending anything at all is not the test: reacting to a message is not answering it.
+    const isReplyFromUser = (event: MatrixEvent): boolean =>
+        event.getSender() === userId &&
+        event.getId() !== thread.id &&
+        event.isRelation(RelationType.Thread) &&
+        event.status !== EventStatus.NOT_SENT;
+
+    if (thread.timeline.some(isReplyFromUser)) return true;
+    // Local echoes with detached pending ordering never enter the timeline above.
+    if (thread.replyToEvent && isReplyFromUser(thread.replyToEvent)) return true;
+
+    // An unknown root is not somebody else's root: without this, a thread whose root has not been
+    // loaded would take the flag at face value, which is the reading this exists to avoid.
+    const rootSender = thread.rootEvent?.getSender();
+    return thread.hasCurrentUserParticipated && rootSender !== undefined && rootSender !== userId;
 }
 
 /**
@@ -108,6 +158,7 @@ export function collectRoomEntries(room: Room, userId: string): ThreadFeedEntry[
             level,
             participated,
             mentioned,
+            replied: hasReplied(thread, userId),
         });
     }
 
@@ -144,8 +195,29 @@ export function applyHeldOrder(entries: ThreadFeedEntry[], order: readonly strin
     return [...entries].sort((a, b) => rankOf(a.threadId) - rankOf(b.threadId));
 }
 
+function matchesFilter(entry: ThreadFeedEntry, filter: ThreadsFeedFilter): boolean {
+    switch (filter) {
+        case ThreadsFeedFilter.Unread:
+            return entry.level >= NotificationLevel.Activity;
+        case ThreadsFeedFilter.Mentions:
+            // Deliberately not a notification-level test: `NotificationLevel.Unsent` outranks
+            // `Highlight`, so a thread with a failed local echo would otherwise show up here.
+            return entry.mentioned;
+        case ThreadsFeedFilter.Unreplied:
+            return !entry.replied;
+        default: {
+            const exhaustive: never = filter;
+            throw new Error(`Unhandled threads feed filter: ${exhaustive}`);
+        }
+    }
+}
+
 /**
- * Applies a filter, always keeping `keepThreadId` whether it matches or not.
+ * Applies the active filters, always keeping `keepThreadId` whether it matches or not.
+ *
+ * Filters narrow together rather than widen: "Unread" and "Mentions" together means unread mentions.
+ * The looser reading would make each chip added return more, which is not what selecting a filter is
+ * for.
  *
  * Reading a thread is what makes it stop matching "Unread", so a card expanded under that filter
  * would otherwise delete itself — and the composer being typed into — the moment its read receipt
@@ -153,23 +225,11 @@ export function applyHeldOrder(entries: ThreadFeedEntry[], order: readonly strin
  */
 export function filterEntries(
     entries: ThreadFeedEntry[],
-    filter: ThreadsFeedFilter,
+    filters: ThreadsFeedFilters,
     keepThreadId?: string | null,
 ): ThreadFeedEntry[] {
-    const keep = (entry: ThreadFeedEntry, matches: boolean): boolean => matches || entry.threadId === keepThreadId;
-
-    switch (filter) {
-        case ThreadsFeedFilter.All:
-            return entries;
-        case ThreadsFeedFilter.Unread:
-            return entries.filter((entry) => keep(entry, entry.level >= NotificationLevel.Activity));
-        case ThreadsFeedFilter.Mentions:
-            // Deliberately not a notification-level test: `NotificationLevel.Unsent` outranks
-            // `Highlight`, so a thread with a failed local echo would otherwise show up here.
-            return entries.filter((entry) => keep(entry, entry.mentioned));
-        default: {
-            const exhaustive: never = filter;
-            throw new Error(`Unhandled threads feed filter: ${exhaustive}`);
-        }
-    }
+    if (filters.size === 0) return entries;
+    return entries.filter(
+        (entry) => entry.threadId === keepThreadId || [...filters].every((filter) => matchesFilter(entry, filter)),
+    );
 }
