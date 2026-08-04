@@ -61,8 +61,14 @@ interface Geometry {
 describe("ThreadsView", () => {
     let feed: ThreadsFeedState;
     let geometry: Geometry;
-    /** Entries per filter, so that changing filter really changes the list, as it does in the app. */
-    let entriesByFilter: Partial<Record<ThreadsFeedFilter, ThreadFeedEntry[]>>;
+    /**
+     * Entries per filter combination, so that changing filter really changes the list, as it does
+     * in the app. Keyed by the filters applied, in a fixed order so that a selection made in either
+     * order finds the same list.
+     */
+    let entriesByFilter: Map<string, ThreadFeedEntry[]>;
+
+    const filterKey = (...filters: ThreadsFeedFilter[]): string => [...filters].sort().join("+");
 
     const entriesFor = (threadIds: string[]): ThreadFeedEntry[] =>
         threadIds.map(
@@ -73,6 +79,7 @@ describe("ThreadsView", () => {
                     level: NotificationLevel.None,
                     participated: true,
                     mentioned: false,
+                    replied: true,
                 }) as ThreadFeedEntry,
         );
 
@@ -87,10 +94,10 @@ describe("ThreadsView", () => {
             loadMore: jest.fn(),
             initialised: true,
         };
-        entriesByFilter = {};
-        mockedUseThreadsFeed.mockImplementation((filter) => ({
+        entriesByFilter = new Map();
+        mockedUseThreadsFeed.mockImplementation((filters) => ({
             ...feed,
-            entries: entriesByFilter[filter] ?? feed.entries,
+            entries: entriesByFilter.get(filterKey(...filters)) ?? feed.entries,
         }));
     });
 
@@ -137,7 +144,7 @@ describe("ThreadsView", () => {
 
     function chooseFilter(name: string): void {
         act(() => {
-            fireEvent.click(screen.getByRole("option", { name }));
+            fireEvent.click(screen.getByRole("button", { name }));
         });
     }
 
@@ -227,6 +234,26 @@ describe("ThreadsView", () => {
         activityReorders(rerender, ["late", ...filled]);
 
         expect(renderedOrder()).toEqual([...filled, "late"]);
+    });
+
+    it("keeps rendering the active card when filtering re-windows the feed past it", () => {
+        // The card being replied to ranks below the first render batch. Filtering re-windows to that
+        // batch, and dropping the card would take the composer and the draft in it with it.
+        const many = Array.from({ length: 25 }, (_unused, index) => `t${index}`);
+        feed = { ...feed, entries: entriesFor(many) };
+        geometry = { scrollTop: 0, scrollHeight: 10000, clientHeight: 1000 };
+        const { scroller } = renderView();
+        expect(renderedOrder()).toContain("t24");
+
+        // Parked out of reach of the end, so the window does not simply grow back after the filter
+        // resets it to the first batch of 20.
+        scrollTo(scroller, 4000);
+        expandCard("t24");
+
+        chooseFilter("Unread");
+
+        expect(renderedOrder()).toContain("t24");
+        expect(renderedOrder()).toHaveLength(25);
     });
 
     it("searches more rooms when the feed is too short to scroll", () => {
@@ -333,7 +360,7 @@ describe("ThreadsView", () => {
     it("does not reorder around an expanded card when the filter changes", () => {
         // The Unread list is sorted by activity like any other, so it arrives in a different order
         // from the one on screen.
-        entriesByFilter[ThreadsFeedFilter.Unread] = entriesFor(["c", "a", "b"]);
+        entriesByFilter.set(filterKey(ThreadsFeedFilter.Unread), entriesFor(["c", "a", "b"]));
         const { rerender } = renderView();
 
         // Expanding freezes the order without any scrolling, because the composer it opens is what
@@ -347,6 +374,50 @@ describe("ThreadsView", () => {
         chooseFilter("Unread");
 
         expect(renderedOrder()).toEqual(["a", "b", "c"]);
+    });
+
+    it("releases the held order when the expanded card leaves the feed", () => {
+        const { rerender } = renderView();
+
+        expandCard("a");
+        // "a" has gone — its room left, or its root redacted — so the card unmounted without ever
+        // being collapsed. Holding the order to it from here leaves a hold nothing can release.
+        activityReorders(rerender, ["c", "b"]);
+
+        // Sorted, not held: the held order would have put "b" ahead of "c", as it did above.
+        expect(renderedOrder()).toEqual(["c", "b"]);
+    });
+
+    it("narrows by every selected filter at once", () => {
+        entriesByFilter.set(filterKey(ThreadsFeedFilter.Unread), entriesFor(["a", "b"]));
+        entriesByFilter.set(filterKey(ThreadsFeedFilter.Unread, ThreadsFeedFilter.Mentions), entriesFor(["b"]));
+        renderView();
+
+        chooseFilter("Unread");
+        expect(renderedOrder()).toEqual(["a", "b"]);
+
+        chooseFilter("Mentions");
+
+        expect(renderedOrder()).toEqual(["b"]);
+        expect(screen.getByRole("button", { name: "Unread" })).toHaveAttribute("aria-pressed", "true");
+        expect(screen.getByRole("button", { name: "Mentions" })).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("keeps answering the chips however many times they are toggled", () => {
+        entriesByFilter.set(filterKey(ThreadsFeedFilter.Unread), entriesFor(["c"]));
+        entriesByFilter.set(filterKey(ThreadsFeedFilter.Mentions), entriesFor(["b"]));
+        renderView();
+
+        for (let pass = 0; pass < 3; pass++) {
+            chooseFilter("Unread");
+            expect(renderedOrder()).toEqual(["c"]);
+            chooseFilter("Unread");
+            expect(renderedOrder()).toEqual(["a", "b", "c"]);
+            chooseFilter("Mentions");
+            expect(renderedOrder()).toEqual(["b"]);
+            chooseFilter("Mentions");
+            expect(renderedOrder()).toEqual(["a", "b", "c"]);
+        }
     });
 
     describe("marking everything read", () => {

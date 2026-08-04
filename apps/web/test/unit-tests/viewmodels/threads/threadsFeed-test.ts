@@ -5,9 +5,18 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import { type MatrixClient, type MatrixEvent, PendingEventOrdering, Room } from "matrix-js-sdk/src/matrix";
+import {
+    EventStatus,
+    EventType,
+    type MatrixClient,
+    type MatrixEvent,
+    MsgType,
+    PendingEventOrdering,
+    RelationType,
+    Room,
+} from "matrix-js-sdk/src/matrix";
 
-import { stubClient } from "../../../test-utils";
+import { mkEvent, stubClient } from "../../../test-utils";
 import { populateThread } from "../../../test-utils/threads";
 import { NotificationLevel } from "../../../../src/stores/notifications/NotificationLevel";
 import * as RoomNotifs from "../../../../src/RoomNotifs";
@@ -16,6 +25,7 @@ import {
     collectRoomEntries,
     filterEntries,
     hasParticipated,
+    hasReplied,
     sortEntries,
     type ThreadFeedEntry,
     ThreadsFeedFilter,
@@ -28,6 +38,37 @@ const OTHER = "@other:example.org";
 /** Adds intentional mentions to an already-created event, as a sender's client would have. */
 function addMentions(event: MatrixEvent, mentions: { user_ids?: string[]; room?: boolean }): void {
     Object.assign(event.getContent(), { "m.mentions": mentions });
+}
+
+/**
+ * A reply of the user's that has not landed on the server yet. Detached pending ordering keeps
+ * local echoes out of the timeline, so this is the shape `thread.replyToEvent` hands back.
+ */
+function pendingReply(threadId: string, status: EventStatus): MatrixEvent {
+    const event = mkEvent({
+        event: true,
+        type: EventType.RoomMessage,
+        user: ME,
+        room: "!room:example.org",
+        content: {
+            "msgtype": MsgType.Text,
+            "body": "On its way",
+            "m.relates_to": { rel_type: RelationType.Thread, event_id: threadId },
+        },
+    });
+    event.status = status;
+    return event;
+}
+
+/** A reaction, which the SDK files in the thread's timeline alongside its replies. */
+function reactionFrom(userId: string, targetId: string): MatrixEvent {
+    return mkEvent({
+        event: true,
+        type: EventType.Reaction,
+        user: userId,
+        room: "!room:example.org",
+        content: { "m.relates_to": { rel_type: RelationType.Annotation, event_id: targetId, key: "👍" } },
+    });
 }
 
 describe("threadsFeed", () => {
@@ -84,6 +125,122 @@ describe("threadsFeed", () => {
                 participantUserIds: [OTHER],
             });
             expect(hasParticipated(thread, ME)).toBe(false);
+        });
+    });
+
+    describe("hasReplied", () => {
+        it("is true when the user sent a reply", async () => {
+            const { thread } = await populateThread({
+                room,
+                client,
+                authorId: OTHER,
+                participantUserIds: [ME],
+            });
+            expect(hasReplied(thread, ME)).toBe(true);
+        });
+
+        it("is false when the user only started the thread", async () => {
+            // The whole point of the distinction: a question the user asked is still waiting on
+            // somebody else, so it is not something they have replied to.
+            const { thread } = await populateThread({
+                room,
+                client,
+                authorId: ME,
+                participantUserIds: [OTHER],
+            });
+            expect(hasReplied(thread, ME)).toBe(false);
+        });
+
+        it("is false when the user has not taken part at all", async () => {
+            const { thread } = await populateThread({
+                room,
+                client,
+                authorId: OTHER,
+                participantUserIds: [OTHER],
+            });
+            expect(hasReplied(thread, ME)).toBe(false);
+        });
+
+        it("counts a reply that is still on its way", async () => {
+            const { thread } = await populateThread({
+                room,
+                client,
+                authorId: OTHER,
+                participantUserIds: [OTHER],
+            });
+            jest.spyOn(thread, "replyToEvent", "get").mockReturnValue(pendingReply(thread.id, EventStatus.SENDING));
+
+            expect(hasReplied(thread, ME)).toBe(true);
+        });
+
+        it("does not count a reply that failed to send", async () => {
+            const { thread } = await populateThread({
+                room,
+                client,
+                authorId: OTHER,
+                participantUserIds: [OTHER],
+            });
+            jest.spyOn(thread, "replyToEvent", "get").mockReturnValue(pendingReply(thread.id, EventStatus.NOT_SENT));
+
+            expect(hasReplied(thread, ME)).toBe(false);
+        });
+
+        it("does not count reacting to a thread as replying in it", async () => {
+            const { thread, events } = await populateThread({
+                room,
+                client,
+                authorId: OTHER,
+                participantUserIds: [OTHER],
+            });
+            thread.addEvent(reactionFrom(ME, events[events.length - 1].getId()!), false);
+
+            // Asserted rather than assumed: the reaction only tells us anything about how replies are
+            // counted because the SDK files it in the thread's timeline next to them.
+            expect(thread.timeline.some((event) => event.getSender() === ME)).toBe(true);
+            expect(hasReplied(thread, ME)).toBe(false);
+        });
+
+        it("trusts the server's participation flag in a thread the user did not start", async () => {
+            // Covers a reply in history this client has never loaded, which is the only thing the
+            // flag can tell us that the timeline cannot.
+            const { thread } = await populateThread({
+                room,
+                client,
+                authorId: OTHER,
+                participantUserIds: [OTHER],
+            });
+            jest.spyOn(thread, "hasCurrentUserParticipated", "get").mockReturnValue(true);
+
+            expect(hasReplied(thread, ME)).toBe(true);
+        });
+
+        it("does not read the server's participation flag as a reply when the root is unknown", async () => {
+            // An unloaded root is not somebody else's root, and taking the flag at face value here
+            // would call a thread the user started one they had answered in.
+            const { thread } = await populateThread({
+                room,
+                client,
+                authorId: ME,
+                participantUserIds: [OTHER],
+            });
+            jest.spyOn(thread, "hasCurrentUserParticipated", "get").mockReturnValue(true);
+            thread.rootEvent = undefined;
+
+            expect(hasReplied(thread, ME)).toBe(false);
+        });
+
+        it("does not read the server's participation flag as a reply in the user's own thread", async () => {
+            // Servers are entitled to count starting a thread as participating in it, so the flag
+            // alone cannot tell "I started this" from "I answered in it".
+            const { thread } = await populateThread({
+                room,
+                client,
+                authorId: ME,
+                participantUserIds: [OTHER],
+            });
+            jest.spyOn(thread, "hasCurrentUserParticipated", "get").mockReturnValue(true);
+
+            expect(hasReplied(thread, ME)).toBe(false);
         });
     });
 
@@ -308,70 +465,84 @@ describe("threadsFeed", () => {
                 threadId: "$none",
                 level: NotificationLevel.None,
                 mentioned: false,
+                replied: true,
             },
             {
                 threadId: "$activity",
                 level: NotificationLevel.Activity,
                 mentioned: false,
+                replied: true,
             },
             {
                 threadId: "$notification",
                 level: NotificationLevel.Notification,
                 mentioned: false,
+                replied: false,
             },
             {
                 threadId: "$highlight",
                 level: NotificationLevel.Highlight,
                 mentioned: true,
+                replied: false,
             },
             {
                 threadId: "$readMention",
                 level: NotificationLevel.None,
                 mentioned: true,
+                replied: true,
             },
             {
                 threadId: "$unsent",
                 level: NotificationLevel.Unsent,
                 mentioned: false,
+                replied: true,
             },
         ] as ThreadFeedEntry[];
 
-        it("returns everything for All", () => {
-            expect(filterEntries(entries, ThreadsFeedFilter.All)).toHaveLength(6);
+        const ids = (filters: ThreadsFeedFilter[], keepThreadId?: string): string[] =>
+            filterEntries(entries, new Set(filters), keepThreadId).map((e) => e.threadId);
+
+        it("returns everything when nothing is selected", () => {
+            expect(ids([])).toHaveLength(6);
         });
 
         it("returns anything with activity or above for Unread", () => {
-            expect(filterEntries(entries, ThreadsFeedFilter.Unread).map((e) => e.threadId)).toEqual([
-                "$activity",
-                "$notification",
-                "$highlight",
-                "$unsent",
-            ]);
+            expect(ids([ThreadsFeedFilter.Unread])).toEqual(["$activity", "$notification", "$highlight", "$unsent"]);
         });
 
         it("returns mentions for Mentions, whether or not they are still unread", () => {
-            expect(filterEntries(entries, ThreadsFeedFilter.Mentions).map((e) => e.threadId)).toEqual([
-                "$highlight",
-                "$readMention",
-            ]);
+            expect(ids([ThreadsFeedFilter.Mentions])).toEqual(["$highlight", "$readMention"]);
         });
 
         it("does not treat a failed send as a mention", () => {
             // NotificationLevel.Unsent outranks Highlight, so a level test would match it.
-            expect(filterEntries(entries, ThreadsFeedFilter.Mentions).map((e) => e.threadId)).not.toContain("$unsent");
+            expect(ids([ThreadsFeedFilter.Mentions])).not.toContain("$unsent");
+        });
+
+        it("returns threads without a reply from the user for Unreplied", () => {
+            expect(ids([ThreadsFeedFilter.Unreplied])).toEqual(["$notification", "$highlight"]);
+        });
+
+        it("narrows rather than widens when several are selected", () => {
+            // $readMention is a mention but is read, and $activity is unread but not a mention, so
+            // an intersection returns neither. A union would return both.
+            expect(ids([ThreadsFeedFilter.Unread, ThreadsFeedFilter.Mentions])).toEqual(["$highlight"]);
+            expect(ids([ThreadsFeedFilter.Unread, ThreadsFeedFilter.Mentions, ThreadsFeedFilter.Unreplied])).toEqual([
+                "$highlight",
+            ]);
+            expect(ids([ThreadsFeedFilter.Mentions, ThreadsFeedFilter.Unreplied])).toEqual(["$highlight"]);
         });
 
         it("keeps the thread being read even once it no longer matches", () => {
             // Reading a thread is what makes it stop matching Unread, so without this the card the
             // user is reading — and the composer in it — is removed as its read receipt lands.
-            expect(filterEntries(entries, ThreadsFeedFilter.Unread, "$none").map((e) => e.threadId)).toContain("$none");
-            expect(filterEntries(entries, ThreadsFeedFilter.Mentions, "$none").map((e) => e.threadId)).toContain(
-                "$none",
-            );
+            expect(ids([ThreadsFeedFilter.Unread], "$none")).toContain("$none");
+            expect(ids([ThreadsFeedFilter.Mentions], "$none")).toContain("$none");
+            expect(ids([ThreadsFeedFilter.Unread, ThreadsFeedFilter.Mentions], "$none")).toContain("$none");
         });
 
         it("does not duplicate the thread being read when it still matches", () => {
-            expect(filterEntries(entries, ThreadsFeedFilter.Unread, "$activity").map((e) => e.threadId)).toEqual([
+            expect(ids([ThreadsFeedFilter.Unread], "$activity")).toEqual([
                 "$activity",
                 "$notification",
                 "$highlight",

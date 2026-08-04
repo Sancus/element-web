@@ -17,6 +17,10 @@ import { type Credentials } from "../../../plugins/homeserver";
 
 type RoomRef = { name: string; roomId: string };
 
+/** Every filter chip the feed offers, so that setting some means clearing the others. */
+const THREADS_FILTER_NAMES = ["Unread", "Mentions", "Never Replied"] as const;
+type ThreadsFilterName = (typeof THREADS_FILTER_NAMES)[number];
+
 /**
  * Set up for a read receipt test:
  * - Create a user with the supplied name
@@ -357,22 +361,19 @@ export class Helpers {
     }
 
     /**
-     * Choose one of the feed's filter chips, or clear the current one.
+     * Turn on exactly the named filter chips and turn off the rest.
      *
-     * There is no "All threads" chip: the unfiltered feed is what no selection means, so getting
-     * back to it is a matter of switching whichever chip is on back off again.
+     * There is no "All threads" chip: the unfiltered feed is what no selection means, so calling
+     * this with no names is how a test asks for it.
      */
-    async setFilter(name: "All threads" | "Unread" | "Mentions") {
-        const filters = this.getThreadsPage().getByRole("listbox", { name: "Filter threads" });
-        if (name === "All threads") {
-            const selected = filters.getByRole("option", { selected: true });
-            if ((await selected.count()) > 0) await selected.click();
-            await expect(filters.getByRole("option", { selected: true })).toHaveCount(0);
-            return;
+    async setFilters(...names: ThreadsFilterName[]) {
+        const filters = this.getThreadsPage().getByRole("group", { name: "Filter threads" });
+        for (const name of THREADS_FILTER_NAMES) {
+            const chip = filters.getByRole("button", { name });
+            const wanted = names.includes(name);
+            if ((await chip.getAttribute("aria-pressed")) !== String(wanted)) await chip.click();
+            await expect(chip).toHaveAttribute("aria-pressed", String(wanted));
         }
-
-        await filters.getByRole("option", { name }).click();
-        await expect(filters.getByRole("option", { name })).toHaveAttribute("aria-selected", "true");
     }
 
     /**
@@ -394,6 +395,23 @@ export class Helpers {
      */
     async receiveThreadMentioningUser(room: RoomRef, msg: MessageBuilder, user: Credentials, rootMessage: string) {
         await this.receiveMessages(room, [rootMessage, this.mentionOf(msg, rootMessage, user)]);
+    }
+
+    /**
+     * A mention the user never answered, and a thread they did answer that has since had another
+     * reply.
+     *
+     * "Asked" is a mention with no reply from the user; "Answered" is unread but replied to and
+     * mentions nobody. Neither matches both filters, so a feed built on these can tell filters that
+     * narrow together apart from filters that widen.
+     */
+    async receiveAskedAndAnswered(room1: RoomRef, room2: RoomRef, msg: MessageBuilder, user: Credentials) {
+        await this.receiveThreadWithOwnReply(room2, msg, "Answered", "My answer");
+        await this.receiveThreadMentioningUser(room1, msg, user, "Asked");
+        await this.receiveMessages(room2, [msg.threadedOff("Answered", "One more")]);
+        // Sending marks a thread read, and the reply arriving afterwards has to come back as unread
+        // for these filters to have anything to disagree about, which only a resync settles.
+        await this.page.reload();
     }
 
     /**

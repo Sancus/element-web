@@ -27,7 +27,7 @@ import {
     isFeedRoom,
     sortEntries,
     type ThreadFeedEntry,
-    type ThreadsFeedFilter,
+    type ThreadsFeedFilters,
 } from "./threadsFeed";
 
 /** How quickly a change in one room is reflected in the feed. */
@@ -73,7 +73,7 @@ export interface ThreadsFeedState {
  * thread in every room several times a second, which on a large account is enough main-thread
  * work to be felt.
  */
-export function useThreadsFeed(filter: ThreadsFeedFilter, keepThreadId?: string | null): ThreadsFeedState {
+export function useThreadsFeed(filters: ThreadsFeedFilters, keepThreadId?: string | null): ThreadsFeedState {
     const client = useMatrixClientContext();
     const msc3946ProcessDynamicPredecessor = useSettingValue("feature_dynamic_room_predecessors");
 
@@ -300,7 +300,10 @@ export function useThreadsFeed(filter: ThreadsFeedFilter, keepThreadId?: string 
         void runBackfill(BACKFILL_BATCH_ROOMS);
     }, [runBackfill]);
 
-    const entries = useMemo(() => filterEntries(allEntries, filter, keepThreadId), [allEntries, filter, keepThreadId]);
+    const entries = useMemo(
+        () => filterEntries(allEntries, filters, keepThreadId),
+        [allEntries, filters, keepThreadId],
+    );
     const hasMore = canBackfill && (unsearchedRooms.length > 0 || pendingRetries > 0);
 
     return {

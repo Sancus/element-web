@@ -112,6 +112,7 @@ describe("ThreadCard", () => {
                 level: NotificationLevel.None,
                 participated: true,
                 mentioned: false,
+                replied: true,
             },
             thread,
             reply: events[1],
@@ -137,6 +138,38 @@ describe("ThreadCard", () => {
         );
         return { onSetActive };
     }
+
+    describe("the unreplied status", () => {
+        // Deliberately not the "Never Replied" the filter chip is called: the label marks the narrower
+        // case where somebody asked, so sharing a name with the filter would misdescribe both.
+        const unreplied = (): HTMLElement | null => screen.queryByText("Waiting on you");
+
+        it("says so when the user was mentioned and has not replied", async () => {
+            const { entry } = await makeEntry("!a:example.org");
+
+            renderCards([{ entry: { ...entry, mentioned: true, replied: false }, expanded: false }]);
+
+            expect(unreplied()).toBeInTheDocument();
+        });
+
+        it("says nothing once the user has replied", async () => {
+            const { entry } = await makeEntry("!a:example.org");
+
+            renderCards([{ entry: { ...entry, mentioned: true, replied: true }, expanded: false }]);
+
+            expect(unreplied()).toBeNull();
+        });
+
+        it("says nothing about a thread that merely went unanswered", async () => {
+            // Most of the feed has never been replied to. Labelling all of it would say nothing; the
+            // label is there for threads where somebody asked the user directly.
+            const { entry } = await makeEntry("!a:example.org");
+
+            renderCards([{ entry: { ...entry, mentioned: false, replied: false }, expanded: false }]);
+
+            expect(unreplied()).toBeNull();
+        });
+    });
 
     it("sends a reply action to the card owning the event, not whichever card is expanded", async () => {
         const a = await makeEntry("!a:example.org");

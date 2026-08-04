@@ -77,10 +77,74 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await util.populateThreads(room1, room2, msg, user);
 
         await util.openThreadsPage();
-        await util.setFilter("Mentions");
+        await util.setFilters("Mentions");
 
         // Only the thread off Msg1 mentions the user.
         await util.assertThreadsInFeed(["Msg1"]);
+    });
+
+    test("should narrow by unread and mentions together", async ({ room1, room2, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.receiveAskedAndAnswered(room1, room2, msg, user);
+
+        await util.openThreadsPage();
+        await util.setFilters("Unread");
+        await expect(util.getThreadCards()).toHaveCount(2);
+
+        await util.setFilters("Unread", "Mentions");
+
+        // Both chips narrow, so this is the unread mention and not everything either chip matches.
+        await expect(util.getThreadCards()).toHaveCount(1);
+        await expect(util.getThreadCard("Asked")).toBeVisible();
+    });
+
+    test("should find threads with no reply from the user", async ({ room1, room2, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.receiveAskedAndAnswered(room1, room2, msg, user);
+
+        await util.openThreadsPage();
+        await util.setFilters("Never Replied");
+
+        await expect(util.getThreadCards()).toHaveCount(1);
+        await expect(util.getThreadCard("Asked")).toBeVisible();
+    });
+
+    test("should mark a thread the user was asked in and never answered", async ({ room1, room2, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.receiveAskedAndAnswered(room1, room2, msg, user);
+
+        await util.openThreadsPage();
+
+        await expect(util.getThreadCard("Asked")).toContainText("Waiting on you");
+        // Answered is not unreplied, and would not be labelled even if it were: nobody asked.
+        await expect(util.getThreadCard("Answered")).not.toContainText("Waiting on you");
+    });
+
+    test("should keep filtering however often the chips are toggled", async ({ room1, room2, util, msg, user }) => {
+        await util.goTo(room1);
+        await util.receiveAskedAndAnswered(room1, room2, msg, user);
+
+        await util.openThreadsPage();
+
+        // Asserted by which cards are on screen rather than how many, and "Unread" is in the rotation
+        // because it is the one filter here that keeps both: a feed that stopped recomputing would
+        // hold a result that is the right size for the filter before it.
+        for (let pass = 0; pass < 3; pass++) {
+            await util.setFilters("Mentions");
+            await expect(util.getThreadCard("Asked")).toBeVisible();
+            await expect(util.getThreadCard("Answered")).not.toBeAttached();
+
+            await util.setFilters("Unread");
+            await expect(util.getThreadCard("Asked")).toBeVisible();
+            await expect(util.getThreadCard("Answered")).toBeVisible();
+
+            await util.setFilters("Never Replied", "Unread");
+            await expect(util.getThreadCard("Asked")).toBeVisible();
+            await expect(util.getThreadCard("Answered")).not.toBeAttached();
+
+            await util.setFilters();
+            await expect(util.getThreadCards()).toHaveCount(2);
+        }
     });
 
     test("should reply to a thread from the feed", async ({ room1, util, msg, page, user }) => {
@@ -239,7 +303,7 @@ test.describe("Threads view", { tag: "@no-firefox" }, () => {
         await page.reload();
 
         await util.openThreadsPage();
-        await util.setFilter("Unread");
+        await util.setFilters("Unread");
         await expect(util.getThreadCard("Msg1")).toBeVisible();
 
         // Expanding sends a read receipt, which stops the thread matching this filter. The card
