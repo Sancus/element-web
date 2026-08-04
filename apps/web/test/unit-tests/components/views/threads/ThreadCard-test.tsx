@@ -29,6 +29,7 @@ import { TimelineRenderingType } from "../../../../../src/contexts/RoomContext";
 import { Action } from "../../../../../src/dispatcher/actions";
 import defaultDispatcher from "../../../../../src/dispatcher/dispatcher";
 import ResizeNotifier from "../../../../../src/utils/ResizeNotifier";
+import UserActivity from "../../../../../src/UserActivity";
 import DMRoomMap from "../../../../../src/utils/DMRoomMap";
 
 // EventTile and MessageComposer are exercised by their own suites; stubbing them keeps this
@@ -500,6 +501,12 @@ describe("ThreadCard", () => {
     });
 
     describe("marking read", () => {
+        // Every case here is about a user who is sitting in front of the card. The one that is
+        // not says so for itself.
+        beforeEach(() => {
+            jest.spyOn(UserActivity.sharedInstance(), "userActiveRecently").mockReturnValue(true);
+        });
+
         it("does not mark a thread read while it is still hiding replies", async () => {
             // Opening the composer is not a claim to have read anything, and a threaded receipt
             // covers every reply before the one it names — including the ones behind the count.
@@ -574,6 +581,32 @@ describe("ThreadCard", () => {
             // Never the root: the SDK files a receipt against a thread root under the main
             // timeline, which would mark the room's own messages read as a side effect.
             expect(sendReadReceipt.mock.calls[0][0]!.getId()).not.toBe(a.thread.id);
+        });
+
+        it("waits for the user to come back before marking a reply that arrived while they were away", async () => {
+            jest.spyOn(UserActivity.sharedInstance(), "userActiveRecently").mockReturnValue(false);
+            const a = await makeEntry("!a:example.org", 8);
+            const sendReadReceipt = jest.spyOn(client, "sendReadReceipt").mockResolvedValue({});
+
+            render(
+                <Providers>
+                    <ThreadCard entry={a.entry} active={true} onSetActive={jest.fn()} resizeNotifier={resizeNotifier} />
+                </Providers>,
+            );
+
+            await act(async () => {
+                screen.getByRole("button", { name: /more repl/ }).click();
+            });
+
+            // On screen, but nobody is there to be reading it.
+            expect(sendReadReceipt).not.toHaveBeenCalled();
+
+            jest.spyOn(UserActivity.sharedInstance(), "userActiveRecently").mockReturnValue(true);
+            await act(async () => {
+                defaultDispatcher.dispatch({ action: Action.UserActivity }, true);
+            });
+
+            expect(sendReadReceipt).toHaveBeenCalled();
         });
     });
 
