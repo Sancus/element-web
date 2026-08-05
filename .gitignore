@@ -43,3 +43,7 @@ storybook-static
 # vitepress
 /docs/.vitepress/dist
 /docs/.vitepress/cache
+
+# staging directories built by .github/workflows/deploy-chat-thunderbird.yml
+/_deploy
+/_previous_bundles

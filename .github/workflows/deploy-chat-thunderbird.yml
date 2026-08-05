@@ -1,0 +1,144 @@
+# Builds this fork and deploys it to Cloudflare Pages as chat.thunderbird.net.
+#
+# Runs from chat-deploy, not release, and that is deliberate. The desktop workflow packages
+# apps/web/webapp wholesale and overrides only config.json, so anything compiled into the bundle
+# rather than read from config ships inside Element Desktop: the <title>, which Electron's window
+# title follows until MatrixChat sets it from `brand`, and static/unable-to-load.html, which
+# src/vector/index.ts iframes when the app fails to load. Keeping the Thunderbird wording and
+# icons on chat-deploy means desktop packages built from release stay Element-branded. chat-deploy
+# is release plus that branding, so rebase it onto release to pick up app changes.
+#
+# This file lives on release with the desktop workflow, so both pipelines are described in one
+# place; it triggers on chat-deploy because that is the branch with a branded app to deploy.
+#
+# Pushing chat-deploy deploys to staging. Production is manual only, so that a build is looked at
+# on staging first.
+#
+# Separate from the upstream deploy.yml, which downloads a GPG-signed element-hq release tarball
+# and pushes that to app.element.io. No such tarball exists for this fork, so the app is built
+# from the checkout instead.
+#
+# Webpack emits bundles under /bundles/<hash>/ and a build only ever contains its own hash. A
+# session that was already open when a deploy lands will still ask for chunks from the hash it
+# loaded with, so the previous build's bundles are carried forward: they are cached per site and
+# merged into the new upload. Only freshly built bundles go back into the cache, which keeps
+# exactly two generations live rather than compounding every deploy.
+
+name: Deploy chat.thunderbird.net
+
+on:
+    workflow_dispatch:
+        inputs:
+            site:
+                description: Which site to deploy to
+                required: true
+                default: staging
+                type: choice
+                options:
+                    - staging
+                    - production
+    push:
+        branches:
+            - chat-deploy
+
+concurrency: deploy-${{ inputs.site || 'staging' }}
+
+permissions: {}
+
+jobs:
+    deploy:
+        name: Deploy to ${{ inputs.site || 'staging' }}
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            deployments: write
+        env:
+            SITE: ${{ inputs.site || 'staging' }}
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v7
+              with:
+                  node-version-file: package.json
+                  cache: pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            # The running app polls /version and reloads when it differs from the version compiled
+            # into it, so this has to move on every deploy or nobody is offered the update.
+            - name: Work out the version
+              run: |
+                  set -euo pipefail
+                  base=$(node -p "require('./apps/web/package.json').version")
+                  echo "VERSION=$base-tb.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+
+            - name: Restore the previous build's bundles
+              uses: actions/cache/restore@v6
+              with:
+                  path: _previous_bundles
+                  key: webapp-bundles-${{ env.SITE }}-${{ github.run_id }}
+                  restore-keys: webapp-bundles-${{ env.SITE }}-
+
+            - name: Build
+              working-directory: apps/web
+              run: pnpm build
+              env:
+                  NX_DAEMON: "false"
+                  # Left unset this points at an image on app.element.io.
+                  RIOT_OG_IMAGE_URL: https://chat.thunderbird.net/vector-icons/1024.png
+
+            - name: Assemble the upload
+              run: |
+                  set -euo pipefail
+                  cp -r apps/web/webapp _deploy
+
+                  if [ -d _previous_bundles ]; then
+                      cp -rn _previous_bundles/. _deploy/bundles/
+                  fi
+
+                  cp apps/web/thunderbird/config.json _deploy/config.json
+                  cp apps/web/thunderbird/_headers _deploy/_headers
+                  echo "404 Not Found" > _deploy/404.html
+
+                  # An Element-branded page whose purpose is to advertise Element X on the app
+                  # stores. Nothing links to it any more (the redirect in src/vector/index.ts is
+                  # gone and mobile_guide_toast is off), so it is dropped rather than served.
+                  rm -rf _deploy/mobile_guide
+
+            # Cloudflare Pages refuses an upload of more than 20,000 files, and a config that fails
+            # to parse leaves the app on its Element defaults rather than erroring, so both are
+            # worth failing the build over instead of discovering them in production.
+            - name: Check the upload
+              run: |
+                  set -euo pipefail
+                  node -e 'JSON.parse(require("fs").readFileSync("_deploy/config.json", "utf8"))'
+
+                  test "$(cat _deploy/version)" = "$VERSION"
+
+                  files=$(find _deploy -type f | wc -l)
+                  printf 'version %s, %s bundle generations, %s files\n' \
+                    "$VERSION" "$(find _deploy/bundles -mindepth 1 -maxdepth 1 -type d | wc -l)" "$files"
+                  test "$files" -lt 20000
+
+            - name: Save this build's bundles for the next deploy
+              run: |
+                  set -euo pipefail
+                  rm -rf _previous_bundles
+                  cp -r apps/web/webapp/bundles _previous_bundles
+
+            - uses: actions/cache/save@v6
+              with:
+                  path: _previous_bundles
+                  key: webapp-bundles-${{ env.SITE }}-${{ github.run_id }}
+
+            - name: Deploy to Cloudflare Pages
+              uses: cloudflare/wrangler-action@v4
+              with:
+                  apiToken: ${{ secrets.CF_PAGES_TOKEN }}
+                  accountId: ${{ secrets.CF_PAGES_ACCOUNT_ID }}
+                  command: pages deploy _deploy --project-name ${{ env.SITE == 'production' && 'thunderbird-chat-prod' || 'thunderbird-chat-stage' }} --branch main
+                  gitHubToken: ${{ secrets.GITHUB_TOKEN }}

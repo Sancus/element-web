@@ -4,14 +4,40 @@ This checkout is the working tree for the Element Web performance fork:
 
 - Upstream: `https://github.com/element-hq/element-web.git` (`origin`)
 - Fork: `https://github.com/Sancus/element-web.git` (`fork`)
-- Branches: `develop` holds the product work (everything under "What changed"), rebased on
-  upstream `develop`; `release` is `develop` plus the two commits that add the desktop build
-  workflow, and every build and tag comes from there. Keeping the workflow off `develop` is
-  what lets `develop` stay a clean feature diff against upstream. When `develop` moves,
-  rebase `release` onto it (`git rebase develop release`) and force-push; the workflow file
-  is new to this fork, so it can never conflict.
-- Current published build: [`roomlist-fix-v6`](https://github.com/Sancus/element-web/releases/tag/roomlist-fix-v6),
-  built from `roomlist-perf`, so it has neither the newer room list options nor encrypted search.
+- Current published build: [`roomlist-fix-v8`](https://github.com/Sancus/element-web/releases/tag/roomlist-fix-v8).
+
+### Branches
+
+Three, each strictly downstream of the last, so a change belongs to exactly one of them.
+
+**`develop`** — the product work, everything under "What changed", rebased on upstream `develop`.
+App and feature changes only: nothing about building, packaging or deploying anywhere. That is what
+keeps it a clean feature diff to read against upstream.
+
+**`release`** — `develop` plus the CI for both targets: `desktop-builds.yml`, its release assets and
+dependency verifier, `deploy-chat-thunderbird.yml`, and the deploy-time `apps/web/thunderbird/`
+config. **Every desktop build and tag comes from here**, and the packages it produces are
+Element-branded. When `develop` moves, rebase (`git rebase develop release`) and force-push; the CI
+files are new to this fork, so they cannot conflict.
+
+**`chat-deploy`** — `release` plus the Thunderbird wording and icons, and the branch
+`chat.thunderbird.net` is deployed from. It exists as a separate branch rather than as part of
+`release` for one concrete reason: the desktop workflow copies `apps/web/webapp` wholesale and
+overrides only `config.json`, so anything compiled into the bundle instead of read from config ends
+up inside Element Desktop. Two cases actually bite — the `<title>`, which Electron's window title
+follows until `MatrixChat.setPageSubtitle` replaces it from `brand`, and the static error pages,
+which `src/vector/index.ts:260` iframes when the app fails to load. Holding that branding one branch
+downstream means desktop packages never see it. Rebase onto `release` to pick up app changes.
+
+Everything else in the rebrand is config-driven and therefore safe on `release`: the desktop build
+overwrites `config.json` with `apps/desktop/element.io/release/config.json`, which sets
+`brand: "Element"` and carries no `branding` key, so the wordmark, the auth background, the
+homeserver and the integrations manager all revert to Element's own for desktop builds.
+
+One consequence to know about: `apps/web/thunderbird/config.json` sits on `release` and points
+`branding.auth_header_logo_url` and `welcome_background_url` at images that only exist on
+`chat-deploy`. Deploying the web app from `release` would therefore serve an Element-worded app with
+two broken images. Deploy from `chat-deploy`, which is what the workflow triggers on.
 
 The latest release contains Windows, universal macOS, and Linux packages. The local
 untracked `element-desktop-roomlist-fix-20260802.zip` and `perf-harness/` directory are
@@ -228,6 +254,259 @@ git push fork roomlist-fix-v<N>
 Watch the generated GitHub Actions run. A release is created only when the prepare job and
 all three platform builds succeed. Update the release notes in the workflow's `release` job
 first if the feature list has moved on; they are written inline there.
+
+## Web deployment (chat.thunderbird.net)
+
+On `chat-deploy` only. Element Web routes entirely through the URL hash — `src/vector/routing.ts`
+never touches the history API — so serving it as a static site needs no rewrite rules. Element
+itself deploys `app.element.io` to Cloudflare Pages. What a deployment does need is a runtime
+`config.json`, cache headers, and enough branding work that it does not present itself as
+Element.
+
+Deployment-specific files live in `apps/web/thunderbird/`, kept out of `res/` so they are
+obviously not part of a build: `config.json`, `_headers`, and `generate-assets.py`.
+
+### Homeserver and login
+
+`mozilla.modular.im`, `server_name` `mozilla.org`, which delegates authentication under MSC2965
+to a Matrix Authentication Service at `https://chat.mozilla.org/`. There is no static client ID
+to be had, so the client registers itself dynamically on first login. That was checked against
+the live service before anything else was built, because a rejection there would have ruled out
+the homeserver: POSTing the metadata `BasePlatform.getOAuthClientMetadata()` produces returns
+`201` with a `client_id`, including the `urn:ietf:params:oauth:grant-type:device_code` grant
+that `OAuth2.registerClient` adds when the service advertises it (it does).
+
+Two things follow from that service's published metadata:
+
+- `prompt_values_supported` is `["login"]`, with no `create`. Element hides its "Create account"
+  button when `create` is absent, so **nobody can register an account through this client** —
+  they must already have one on `mozilla.org`. `UIFeature.registration` is off to match, rather
+  than leaving a button that cannot work.
+- The js-sdk drops `tos_uri`, `policy_uri` and `logo_uri` from the registration request unless
+  they share a host, or a subdomain of it, with `client_uri` (`urlHasCommonBase` in the js-sdk's
+  `oauth/register.ts`). Thunderbird's canonical terms and privacy pages are on `mozilla.org`, so
+  they are stripped and will not show on Mozilla's consent screen. `oidc_metadata.client_uri` is
+  still set to `https://thunderbird.net` so that equivalents published under `*.thunderbird.net`
+  later would survive. `logo_uri` defaults to `chat.thunderbird.net/vector-icons/1024.png`, which
+  is a subdomain of neither problem and does survive.
+
+### What config.json turns off, and why
+
+Every default that would otherwise reach Element's infrastructure or misdescribe the deployment:
+
+- `integrations_ui_url`, `integrations_rest_url` and `integrations_widgets_urls` are `null`, the
+  documented way to disable integrations. Otherwise the client uses `scalar.vector.im`, which is
+  Element's hosted integration manager. Widgets already present in rooms still render — the
+  integration manager only provisions them — so this costs the "add widgets, bridges & bots"
+  panel and nothing else.
+- `bug_report_endpoint_url` is `local`, so rageshakes download instead of posting to
+  `rageshakes.element.io`. No `posthog` or `sentry` block, so neither is initialised.
+- `UIFeature.locationSharing` is off because no `map_style_url` is configured and Mozilla does
+  not advertise `m.tile_server`; left on, location sharing would fail against Element's MapTiler
+  key or not at all.
+- `UIFeature.passwordReset` and `UIFeature.deactivate` are off: both are the identity provider's
+  business, and it exposes its own account management UI.
+- `desktop_builds.available` is `false` and `mobile_guide_toast` is `false`, so the app stops
+  advertising Element's downloads.
+- `enable_presence_by_hs_url` marks `mozilla.modular.im` as not serving presence, matching what
+  `chat.mozilla.org` configures.
+
+Deliberately left alone:
+
+- **Jitsi.** `jitsi.preferred_domain` keeps its `meet.element.io` default, matching
+  `chat.mozilla.org` exactly, so Thunderbird users behave like any other user of that homeserver
+  and can join Jitsi widgets already in Mozilla rooms. Contrary to what it looks like, this is
+  not a phone-home: `Jitsi.start()` only reads config and well-known, and `getJitsiAuth()` — the
+  one thing that fetches from the domain — is reached only from `WidgetUtils.addJitsiWidget`,
+  i.e. when somebody actually starts a Jitsi call.
+- **`enable_client_well_known_lookups`.** Already `true` in `SdkConfig`'s defaults, and it must
+  stay true: `CallStore` reads `org.matrix.msc4143.rtc_foci` from the homeserver's well-known,
+  which is how Element Call finds Mozilla's LiveKit focus.
+- **`help_encryption_url` and `help_key_storage_url`** still point at `element.io/help`. They are
+  accurate documentation for this software and there is no Thunderbird equivalent to send people
+  to.
+- **`m.identity_server` is `https://vector.im`**, which is Element's identity server and looks
+  like exactly the kind of dependency the rest of this removes. It stays because it is what
+  `mozilla.org/.well-known/matrix/client` itself advertises for its own users, so this is
+  honouring the homeserver's declaration rather than inventing a dependency. It cannot simply be
+  dropped either: `app.tsx` builds `validated_server_config` from `default_server_config` without
+  fetching the real well-known, so removing the line would leave `isUrl` unset and lose
+  email-based invites and lookup that a `chat.mozilla.org` user has. `UIFeature.identityServer` is
+  left on for the same reason.
+
+Worth knowing rather than acting on: the LiveKit focus Mozilla advertises in that same well-known
+is `https://jwt.call.element.io`, so Element Call on `mozilla.org` runs through Element-operated
+infrastructure by Mozilla's own configuration. Nothing in this deployment can change that, and a
+Thunderbird-hosted client is in no different a position than `chat.mozilla.org` is.
+
+### Branding
+
+Name and a text wordmark only. Element's own themes and colours are untouched, and the
+Thunderbird bird is not used — it denotes the mail client, and a community chat deployment is not
+in a position to claim it.
+
+`brand` is `Thunderbird Chat`; `branding.auth_header_logo_url` points at
+`res/vector-icons/wordmark.svg`, which `HomePage.tsx` uses as well as the auth header, so one
+asset covers both. `index.html`'s title and its `apple-mobile-web-app-title` /
+`application-name` metas are retitled, `res/manifest.json` is renamed and its
+`related_applications` (Element's App Store and Play Store listings) dropped, and
+`RIOT_OG_IMAGE_URL` is set at build time because the `og:image` default is an image hosted on
+`app.element.io`.
+
+The icons in `res/vector-icons/` and the auth background are **placeholders** generated by
+`apps/web/thunderbird/generate-assets.py` — a speech bubble on a rounded tile, and a light
+gradient. They exist so that no build ships Element's logo, not because they are a design.
+Replacing them is a matter of overwriting the same filenames, which are fixed by
+`res/manifest.json` and `index.html`.
+
+### Code changes this needs
+
+Four, all on `chat-deploy` rather than `release`, because each is compiled into the bundle instead
+of read from config and would otherwise ship inside Element Desktop — see "Branches" above:
+
+1. **The mobile redirect is removed** from `src/vector/index.ts`. Upstream sends every iOS and
+   Android browser to `mobile_guide/`, an Element-branded page advertising Element X on the app
+   stores. It is not the same thing as `mobile_guide_toast`, which only governs a toast, and it
+   could not have been configured away regardless: it runs *before* `loadConfig()`. Mobile
+   browsers now get the web app, and the workflow does not upload `mobile_guide/` at all.
+2. **`res/apple-app-site-association` and `res/.well-known/assetlinks.json` are emptied.** As
+   shipped they delegate universal-link and App-Link handling for whatever domain serves them to
+   Element's iOS and Android apps, and `webcredentials` scopes Element's saved passwords to it.
+   On `chat.thunderbird.net` that would hand link handling for a Thunderbird domain to a third
+   party's apps. They are emptied rather than deleted because webpack copies both by name and
+   fails the build if they are missing.
+3. **`AuthHeaderLogo.tsx`** had `alt="Element"` hardcoded next to a configurable logo; it now
+   reads `brand`, as `HomePage.tsx` already did. Existing snapshots initialise `SdkConfig` with
+   Element's defaults, so they are unaffected.
+4. **The two static error pages under `src/vector/static/` are retitled.** These are the plain-HTML
+   pages shown when the app cannot load or the browser is unsupported, so they are not reached by
+   `brand` or any other config: both said "Element" and both offered a "Go to element.io" link, at
+   exactly the moment a stuck user is most likely to click an escape hatch. They now name
+   Thunderbird Chat and link to `thunderbird.net`, and `incompatible-browser.html` loses the "Use
+   Element on mobile" column — 587 lines of App Store and Play Store badges for Element's apps.
+   The React equivalent, `ErrorView.tsx`, needs no edit: it takes its name from `brand`, and its
+   app links are suppressed because `desktop_builds.available` is false and `mobile_builds`' fields
+   are nulled.
+
+`index.html`'s `<noscript>` is retitled too, being the one string a visitor with JavaScript
+disabled ever sees.
+
+Two loose ends left deliberately:
+
+- Webpack still builds the `mobileguide` entry, so `mobileguide.js` and `.css` ship as orphans
+  with no page to load them, and `MobileGuideToast` still points at `mobile_guide/`. Harmless
+  while `mobile_guide_toast` is false, but flipping it would give a toast linking to a 404.
+  Removing the entry means editing `webpack.config.ts`, which is not worth the rebase surface for
+  two unreferenced files.
+- Ten strings in `i18n/en_EN.json` still say "Element". Seven are the name of Element Call, which
+  is a distinct product this deployment genuinely embeds, so they are correct as they stand. The
+  other three are `error/misconfigured`, `error/invalid_json` and a developer console note, all of
+  which appear only when the deployment is broken. They could be overridden without a rebuild via
+  the `custom_translations_url` config option, but that only covers whichever languages the
+  override file lists, and the same strings are hardcoded across the other sixty-odd translations.
+  Not worth a hosted file for three error messages.
+
+An audit of what actually ships is worth repeating after any upstream rebase, since these are
+scattered and easy to reintroduce:
+
+```sh
+rg -l 'element\.io|apps\.apple\.com|play\.google\.com' _deploy --glob '*.html' --glob '*.json'
+```
+
+That should return nothing at all. Searching for the bare word `Element` instead is noisier and
+needs judgement: `_deploy/widgets/element-call/` and the `i18n/` files are the expected hits
+described above, and `mx_PersistedElement_container` in `index.html`, `React.createElement` in
+`decoder-ring/`, and the explanatory comment in `usercontent/index.html` are a CSS class name, an
+API call and a comment respectively.
+
+### The workflow
+
+`.github/workflows/deploy-chat-thunderbird.yml`. The file lives on `release` alongside the desktop
+workflow so both pipelines are described in one place, but it triggers on **`chat-deploy`**, which
+is the branch with a branded app to deploy. Pushing `chat-deploy` deploys staging; production is
+`workflow_dispatch` only. It builds from the checkout rather than downloading a release tarball the
+way upstream's `deploy.yml` does, since this fork publishes no GPG-signed tarball, which also
+removes the GPG import and the `element-hq` download.
+
+- `VERSION` is set explicitly to `<package version>-tb.<run number>`. The running app polls
+  `/version` and compares it against the version compiled into it, so a deploy that does not
+  move it offers nobody the update.
+- Webpack emits bundles under `bundles/<hash>/` and a build contains only its own hash, so a
+  session open across a deploy can ask for a chunk that no longer exists. The previous build's
+  bundles are cached per site and merged into the upload. Only *freshly built* bundles go back
+  into the cache, which holds it at two generations instead of compounding every deploy.
+- `_headers` carries `.github/cfp_headers`' security headers, plus explicit `no-cache` on `/`,
+  `/index.html`, `/version`, `/config*` and `/i18n/*` and a year of immutable caching on
+  `/bundles/*`. `WebPlatform.getMostRecentVersion()` fetches with `cache: "no-cache"` so version
+  polling does not depend on those headers, but `index.html` does — see the comment in
+  `startUpdater()` about Firefox not always obeying it.
+- The upload is checked before it is sent: `config.json` parses, `version` matches, and the file
+  count is under Cloudflare Pages' 20,000 limit. A `config.json` that fails to parse leaves the
+  app silently on its Element defaults, which is exactly the failure worth catching in CI.
+
+### The live deployment
+
+`chat.thunderbird.net` is up and a full login round trip has been done through it.
+
+Two Cloudflare Pages projects in the `thunderbird.net` account (`407a3cd7b36b3ec71bf765856c90ae8c`),
+both direct-upload with a production branch of `main`: **`thunderbird-chat-prod`** and
+**`thunderbird-chat-stage`**. The names follow the `stormbox-prod` / `stormbox-stage` pair already
+in that account rather than the `-staging` suffix this file first proposed; the workflow was
+changed to match.
+
+`chat.thunderbird.net` is a proxied `CNAME` to `thunderbird-chat-prod.pages.dev`, with a Google
+Trust Services certificate. **Pages did not create that record itself** even though the zone lives
+in the same account, so it was added by hand; expect to do the same for any further hostname. The
+domain sat at `pending` for about two minutes and the certificate took a few more.
+
+One trap worth knowing before anyone smoke-tests this. The `thunderbird.net` zone runs Super Bot
+Fight Mode with `definitely_automated: managed_challenge`, and **`curl` is definitely automated**:
+requests for HTML and JSON come back `403` with Cloudflare's "Just a moment..." interstitial, while
+static images pass. Nothing is wrong with the deployment when that happens. Real browsers are
+classified normally and are unaffected, which was confirmed by loading the app, watching
+`fetch('/version')` and `fetch('/config.json')` succeed from page context, and logging in. The
+audit command above is subject to this too, so run it against the local `_deploy` directory rather
+than the live site.
+
+Verified in a browser on the live domain: the Thunderbird Chat title and wordmark, `mozilla.org` as
+the only homeserver, `no-cache` with `text/plain` on `/version`, `public, max-age=31536000,
+immutable` on `/bundles/*`, the service worker registering, and the only third-party origins being
+`mozilla.modular.im`, `chat.mozilla.org` and `vector.im`. No `scalar.vector.im`, no
+`meet.element.io`, no `api.maptiler.com`.
+
+Two things seen during that check that are outside this deployment's control:
+
+- Login hands off from `chat.mozilla.org` to Mozilla's Auth0 tenant at
+  `auth.mozilla.auth0.com`, whose browser tab reads **"Log in | Element Matrix"** — the name
+  Mozilla gave their own Auth0 application. Their identity provider offers LDAP, Google, GitHub
+  and Mozilla Accounts.
+- `map_style_url` is deliberately unset and Mozilla advertises no `m.tile_server`, so
+  `findMapStyleUrl` throws `MapStyleUrlNotConfigured` and location sharing fails rather than
+  falling back to a tile server. That is the intended outcome: Element's `config.json` ships a
+  MapTiler URL with Element's own API key, and this avoids spending it.
+
+### Not done yet
+
+- **CI cannot deploy yet.** `CF_PAGES_TOKEN` and `CF_PAGES_ACCOUNT_ID` are not set as repository
+  secrets and the branch has not been pushed, so every deploy so far has been a local `wrangler
+  pages deploy` of a local build. Note the account uses a legacy global API key; the workflow wants
+  a scoped API token with Pages edit permission, which is worth minting rather than reusing the
+  global key.
+- **Nobody has asked Mozilla.** Pointing a publicly reachable, Thunderbird-branded client at
+  `mozilla.org` accounts and their LiveKit and Jitsi capacity needs the homeserver operators'
+  agreement, and they may prefer to issue a static `client_id` over dynamic registration. This is
+  now more pressing, not less, because the thing is live.
+- Element Call against their focus has not been exercised, nor file download through the
+  `usercontent` iframe.
+- The signup gap is still open for anyone without an account. One existing account logs in fine,
+  but whether Mozilla's provider will create a Matrix account for a new Google or GitHub identity
+  is untested, and `prompt_values_supported` still advertises only `login`, so there is no
+  "Create Account" button in the client either way.
+- No `embedded_pages.welcome_url`, so `login_for_welcome` sends people straight to a login page
+  that does not explain that a `mozilla.org` account is required.
+- No privacy or terms pages under `*.thunderbird.net`, so `privacy_policy_url` and
+  `terms_and_conditions_links` are unset and there is no discoverable AGPL source offer beyond the
+  footer's "Source code" link.
 
 ## Current release and distribution constraints
 
