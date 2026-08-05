@@ -114,7 +114,7 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
         enableNodeOptionsEnvironmentVariable: false,
         enableNodeCliInspectArguments: false,
         // We need to reset the signature if we are not signing on darwin otherwise it won't launch
-        resetAdHocDarwinSignature: !process.env.APPLE_TEAM_ID,
+        resetAdHocDarwinSignature: !process.env.CSC_LINK && !process.env.APPLE_TEAM_ID,
 
         loadBrowserProcessSpecificV8Snapshot: false,
         enableEmbeddedAsarIntegrityValidation: true,
@@ -170,6 +170,7 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
         icon: "build/icon.icon",
         mergeASARs: true,
         x64ArchFiles: "**/matrix-seshat/*.node", // hak already runs lipo
+        notarize: process.env.NOTARIZE === "true",
     },
     dmg: {
         badgeIcon: "build/icon.icon",
@@ -194,6 +195,7 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
     nativeRebuilder: "sequential",
     nodeGypRebuild: false,
     npmRebuild: true,
+    forceCodeSigning: process.env.REQUIRE_CODE_SIGNING === "true",
 };
 
 /**
