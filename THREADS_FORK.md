@@ -87,7 +87,7 @@ with taking part.
 **Cards must also add the pending replies the timeline does not contain.** Element runs with
 detached pending-event ordering, so a local echo lives in the room's pending list, not in the
 thread timeline, and raises no `RoomEvent.Timeline`. Reading only the timeline means sending from
-the feed clears the composer and displays nothing — and a *failed* send offers no retry or cancel,
+the feed clears the composer and displays nothing — and a _failed_ send offers no retry or cancel,
 because the event carrying those affordances was never rendered. `getPendingReplies()` appends
 them the way `TimelinePanel` does, and the feed listens for `RoomEvent.LocalEchoUpdated`.
 
@@ -175,7 +175,7 @@ threads work writes **no shared state at all**:
 - **Read receipts are ordinary threaded receipts.** Reading a card sends a normal
   `m.read`/`m.read.private` carrying the thread's ID, exactly as opening the thread panel
   would. Nothing fork-specific is involved, and stock Element reads these back as its own.
-  What the receipt is sent *against* matters: never the thread root, because the SDK counts a
+  What the receipt is sent _against_ matters: never the thread root, because the SDK counts a
   root as main-timeline and would advance the room's receipt with it, marking messages the
   user has never opened. See `threadReceiptTarget()`.
 - **"Mark all as read" is the one bulk write.** It sends a threaded receipt per unread thread
@@ -263,6 +263,8 @@ problem for module-provided pages.
    refuse to show them. `populateThreads` does this deliberately; a thread built only from other
    people's messages cannot be used as fixture data. The specs inherited from the Threads Activity
    Centre suite listed any unread thread, which is why this was wrong at first.
+5. Validate against the ~1,000-room benchmark account before widening the backfill batch
+   sizes or loosening the throttle.
 
 ### Running the Playwright specs on this machine
 
@@ -275,5 +277,3 @@ not help on its own, because `routeConfigJson` in `packages/playwright-common` h
 test config. Either free 8080, or serve on another port and write a local `apps/web/config.json`
 mirroring the harness's `CONFIG_JSON` (gitignored) — noting that the per-test `config` and
 `labsFlags` fixtures do not apply under that workaround.
-4. Validate against the ~1,000-room benchmark account before widening the backfill batch
-   sizes or loosening the throttle.
