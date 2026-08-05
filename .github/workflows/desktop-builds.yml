@@ -1,11 +1,12 @@
-# Builds unsigned Element Desktop packages carrying this fork's changes.
+# Builds Element Desktop packages carrying this fork's changes. The macOS package is signed and
+# notarized with Apple Developer ID; Linux and Windows remain unsigned.
 #
 # Pushing the release branch runs the whole build and stops at the uploaded artifacts, so a
 # candidate can be downloaded from the run and tested. Pushing a release tag runs the same build
 # and publishes a GitHub Release from it.
 #
 # Separate from the upstream build_desktop_* workflows: those check out element-hq/element-web by
-# name (so they ignore fork changes) and sign via eSigner / Apple notarisation.
+# name, so they ignore fork changes.
 #
 # Targets match what Element normally ships, minus the installers that only make sense signed:
 #   Linux    tar.gz, deb
@@ -268,7 +269,8 @@ jobs:
               if: runner.os == 'macOS'
               run: sudo pip3 install pyobjc-framework-Quartz
 
-            - name: Build package
+            - name: Build unsigned package
+              if: runner.os != 'macOS'
               working-directory: apps/desktop
               shell: bash
               run: |
@@ -281,6 +283,45 @@ jobs:
                   # CSC_LINK is deliberately left unset rather than empty; empty upsets it.
                   CSC_IDENTITY_AUTO_DISCOVERY: "false"
                   USE_HARD_LINKS: "false"
+
+            - name: Build signed and notarized macOS package
+              if: runner.os == 'macOS'
+              working-directory: apps/desktop
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  pnpm exec tsc
+                  node scripts/copy-res.ts
+                  pnpm exec electron-builder ${{ matrix.args }} --publish never
+              env:
+                  CSC_LINK: ${{ secrets.CSC_LINK }}
+                  CSC_KEY_PASSWORD: ${{ secrets.CSC_PASSWORD }}
+                  APPLE_ID: ${{ secrets.APPLE_ID }}
+                  APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+                  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+                  REQUIRE_CODE_SIGNING: "true"
+                  NOTARIZE: "true"
+                  USE_HARD_LINKS: "false"
+
+            - name: Verify macOS signature and notarization
+              if: runner.os == 'macOS'
+              working-directory: apps/desktop
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  shopt -s nullglob
+
+                  mountpoint="$RUNNER_TEMP/element-dmg"
+                  mkdir -p "$mountpoint"
+                  hdiutil attach dist/*.dmg -mountpoint "$mountpoint" -nobrowse
+                  trap 'hdiutil detach "$mountpoint" || true' EXIT
+
+                  apps=("$mountpoint"/*.app)
+                  test "${#apps[@]}" -eq 1 || { echo "expected one app in DMG"; exit 1; }
+                  codesign --verify --deep --strict --verbose=2 "${apps[0]}"
+                  codesign -dv --verbose=4 "${apps[0]}"
+                  spctl --assess --type execute --verbose=4 "${apps[0]}"
+                  xcrun stapler validate "${apps[0]}"
 
             # Proves matrix-seshat actually shipped, rather than the app silently falling back to
             # "no encrypted search" the way the earlier stubbed builds did, and that everything the
@@ -376,10 +417,10 @@ jobs:
 
                   Encrypted-room search works in these builds: matrix-seshat is compiled in, unlike the earlier roomlist-fix releases.
 
-                  These builds are **unsigned** and they will use your existing profile:
+                  The macOS build is signed with Apple Developer ID and notarized. These builds use your existing profile:
 
                   - **Windows** SmartScreen will warn on first run. This is a portable zip, there is nothing to install, just run Element.exe.
-                  - **macOS** Gatekeeper will refuse to open it. Clear the quarantine flag with `xattr -dr com.apple.quarantine /Applications/Element.app`.
+                  - **macOS** The DMG contains the signed and notarized universal app.
                   - **Linux** no signature to check.
 
                   Auto-update is disabled, so these will never replace themselves with official Element. Run with `--profile roomlist-fix` to keep the data directory separate from an existing Element install.
