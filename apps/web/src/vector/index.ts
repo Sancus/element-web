@@ -140,22 +140,11 @@ async function start(): Promise<void> {
 
         const parsedUrl = parseAppUrl(window.location);
 
-        // don't try to redirect to the native apps if we're
-        // verifying a 3pid (but after we've loaded the config)
-        // or if the user is following a deep link
-        // (https://github.com/element-hq/element-web/issues/7378)
-        const preventRedirect = !!parsedUrl.params.threepid || parsedUrl.location.length > 0;
-
-        if (!preventRedirect) {
-            const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            const isAndroid = /Android/.test(navigator.userAgent);
-            if (isIos || isAndroid) {
-                if (sessionStorage.getItem("skip_mobile_redirect") !== "true") {
-                    window.location.href = "mobile_guide/";
-                    return;
-                }
-            }
-        }
+        // Upstream sends mobile browsers to mobile_guide/, which exists to advertise Element's iOS
+        // and Android apps. This deployment has no mobile app of its own to send anyone to, and it
+        // runs against a homeserver it does not own, so the guide is not shipped and the redirect is
+        // dropped: mobile browsers get the web app. Note this runs before loadConfig(), so it could
+        // not have been switched off from config.json in any case.
 
         // set the platform for react sdk
         preparePlatform();
