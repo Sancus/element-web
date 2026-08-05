@@ -24,6 +24,12 @@
        heard. The container and the fallback initial derive from it; the image does not, quite. */
     .mx_BaseAvatar {
         --cpd-avatar-size: var(--room-list-avatar-size, 32px) !important;
+
+        /* Compound centres the fallback initial by giving it a line box of size - 2px, which only
+           comes out centred if a 1px border eats that difference. This avatar has no border, so the
+           2px collects under the line box instead and the initial sits high: 1px at 32px, where it
+           passes unnoticed, but 1.5px of 26px here, which reads as visibly off. */
+        line-height: var(--cpd-avatar-size);
     }
 
     /* The image carries width and height attributes stamped from that same size prop, and Compound's
