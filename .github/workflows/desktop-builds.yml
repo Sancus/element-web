@@ -368,6 +368,7 @@ jobs:
 
                   - **Scroll performance** the room list no longer drops frames on long lists; each row used to keep several closed tooltips running position-tracking loops.
                   - **Compact layout** a 32px row with a 26px avatar, roughly 60% more rooms on screen. Message previews cannot fit, so they are off while it is on. Room list three-dot menu.
+                  - **Compact avatars are square again** they were being scaled to cover a portrait box and drawn off centre, because the compact row shrank the avatar's width and left its height at the full size.
                   - **People section** collects the direct messages that no other section claims, and takes rooms you move into it by hand. Same menu, "Show People section".
                   - **Per-section sorting** each section's menu can pin Latest activity / Unread first / A-Z, or follow the list-wide order.
 

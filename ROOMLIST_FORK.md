@@ -4,7 +4,9 @@ This checkout is the working tree for the Element Web performance fork:
 
 - Upstream: `https://github.com/element-hq/element-web.git` (`origin`)
 - Fork: `https://github.com/Sancus/element-web.git` (`fork`)
-- Current published build: [`roomlist-fix-v8`](https://github.com/Sancus/element-web/releases/tag/roomlist-fix-v8).
+- Current published build: [`threads-v1`](https://github.com/Sancus/element-web/releases/tag/threads-v1).
+  Note it was tagged before `release` was last rebased, so its commit is not an ancestor of
+  `release`, and it predates the compact-avatar fix.
 
 ### Branches
 
@@ -367,7 +369,7 @@ of read from config and would otherwise ship inside Element Desktop — see "Bra
 1. **The mobile redirect is removed** from `src/vector/index.ts`. Upstream sends every iOS and
    Android browser to `mobile_guide/`, an Element-branded page advertising Element X on the app
    stores. It is not the same thing as `mobile_guide_toast`, which only governs a toast, and it
-   could not have been configured away regardless: it runs *before* `loadConfig()`. Mobile
+   could not have been configured away regardless: it runs _before_ `loadConfig()`. Mobile
    browsers now get the web app, and the workflow does not upload `mobile_guide/` at all.
 2. **`res/apple-app-site-association` and `res/.well-known/assetlinks.json` are emptied.** As
    shipped they delegate universal-link and App-Link handling for whatever domain serves them to
@@ -433,7 +435,7 @@ removes the GPG import and the `element-hq` download.
   move it offers nobody the update.
 - Webpack emits bundles under `bundles/<hash>/` and a build contains only its own hash, so a
   session open across a deploy can ask for a chunk that no longer exists. The previous build's
-  bundles are cached per site and merged into the upload. Only *freshly built* bundles go back
+  bundles are cached per site and merged into the upload. Only _freshly built_ bundles go back
   into the cache, which holds it at two generations instead of compounding every deploy.
 - `_headers` carries `.github/cfp_headers`' security headers, plus explicit `no-cache` on `/`,
   `/index.html`, `/version`, `/config*` and `/i18n/*` and a year of immutable caching on
@@ -489,7 +491,7 @@ Two things seen during that check that are outside this deployment's control:
 
 - **CI cannot deploy yet.** `CF_PAGES_TOKEN` and `CF_PAGES_ACCOUNT_ID` are not set as repository
   secrets and the branch has not been pushed, so every deploy so far has been a local `wrangler
-  pages deploy` of a local build. Note the account uses a legacy global API key; the workflow wants
+pages deploy` of a local build. Note the account uses a legacy global API key; the workflow wants
   a scoped API token with Pages edit permission, which is worth minting rather than reusing the
   global key.
 - **Nobody has asked Mozilla.** Pointing a publicly reachable, Thunderbird-branded client at
