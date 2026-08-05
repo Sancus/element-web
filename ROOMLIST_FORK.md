@@ -4,9 +4,8 @@ This checkout is the working tree for the Element Web performance fork:
 
 - Upstream: `https://github.com/element-hq/element-web.git` (`origin`)
 - Fork: `https://github.com/Sancus/element-web.git` (`fork`)
-- Current published build: [`threads-v1`](https://github.com/Sancus/element-web/releases/tag/threads-v1).
-  Note it was tagged before `release` was last rebased, so its commit is not an ancestor of
-  `release`, and it predates the compact-avatar fix.
+- Current published build: [`threads-v2`](https://github.com/Sancus/element-web/releases/tag/threads-v2),
+  tagged at the tip of `release` and so an ancestor of it, unlike its predecessor.
 
 ### Branches
 
@@ -247,16 +246,23 @@ The three `dist-*` artifacts hold the platform packages. Nothing is published.
 
 ### Publish a new build
 
-Only once a candidate has been tested, create and push a new unique tag:
+Only once a candidate has been tested, create and push a new unique tag. Both prefixes the workflow
+listens for work; `threads-*` is the current series:
 
 ```bash
-git tag -a roomlist-fix-v<N> -m "Describe the release"
-git push fork roomlist-fix-v<N>
+git tag -a threads-v<N> -m "Describe the release"
+git push fork threads-v<N>
 ```
 
 Watch the generated GitHub Actions run. A release is created only when the prepare job and
 all three platform builds succeed. Update the release notes in the workflow's `release` job
 first if the feature list has moved on; they are written inline there.
+
+Expect the tag build to take roughly twice as long as the candidate that preceded it, even on an
+identical commit — about 19 minutes against 11 for `threads-v2`. Actions scopes its cache by ref, so
+a tag cannot read what a branch push saved, and `hak` therefore recompiles sqlcipher and
+matrix-seshat from scratch on all three platforms rather than restoring `apps/desktop/.hak`. It is
+wasted time, not a fault, and the `cache-hit != 'true'` steps running is how you tell.
 
 ## Web deployment (chat.thunderbird.net)
 
@@ -513,8 +519,8 @@ pages deploy` of a local build. Note the account uses a legacy global API key; t
 
 ## Current release and distribution constraints
 
-[`threads-v1`](https://github.com/Sancus/element-web/releases/tag/threads-v1) published five
-artifacts:
+[`threads-v2`](https://github.com/Sancus/element-web/releases/tag/threads-v2) published five
+artifacts, about 1.0 GB in total:
 
 - `Element-1.12.24-win.zip`
 - `Element-1.12.24-universal.dmg`
