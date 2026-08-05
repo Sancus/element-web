@@ -37,6 +37,11 @@ export const mockAvatar = (name: string): React.ReactElement => (
             color: "white",
             fontWeight: "bold",
             fontSize: "calc(var(--room-list-avatar-size, 32px) * 0.375)",
+            // Without this the row's font shorthand is inherited, and it carries a unitless 1.5 that
+            // rescales against the font size above. At the compact size that yields a 14.625px line
+            // box whose half-leading is fractional, and Chromium floors it, so centring lifts the
+            // initials by most of a pixel.
+            lineHeight: "normal",
         }}
     >
         {name.substring(0, 2).toUpperCase()}
