@@ -21,8 +21,15 @@
     }
 
     /* The component sets --cpd-avatar-size inline from its size prop, so this has to shout to be
-       heard. Everything else about the avatar (the image, the fallback initial) derives from it. */
+       heard. The container and the fallback initial derive from it; the image does not, quite. */
     .mx_BaseAvatar {
         --cpd-avatar-size: var(--room-list-avatar-size, 32px) !important;
+    }
+
+    /* The image carries width and height attributes stamped from that same size prop, and Compound's
+       own rule overrides only the width. Left alone, the height stays at the prop's 32px while the
+       width shrinks, so the image is scaled to cover a portrait box and cropped off centre. */
+    .mx_BaseAvatar img {
+        block-size: var(--cpd-avatar-size);
     }
 }
