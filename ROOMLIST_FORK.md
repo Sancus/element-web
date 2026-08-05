@@ -17,8 +17,9 @@ App and feature changes only: nothing about building, packaging or deploying any
 keeps it a clean feature diff to read against upstream.
 
 **`release`** — `develop` plus the CI for both targets: `desktop-builds.yml`, its release assets and
-dependency verifier, `deploy-chat-thunderbird.yml`, and the deploy-time `apps/web/thunderbird/`
-config. **Every desktop build and tag comes from here**, and the packages it produces are
+dependency verifier, `deploy-chat-thunderbird.yml`, the deploy-time `apps/web/thunderbird/` config,
+and the `electron-builder.ts` signing gates. **Every desktop build and tag comes from here**, and
+the packages it produces are
 Element-branded. When `develop` moves, rebase (`git rebase develop release`) and force-push; the CI
 files are new to this fork, so they cannot conflict.
 
@@ -512,8 +513,8 @@ pages deploy` of a local build. Note the account uses a legacy global API key; t
 
 ## Current release and distribution constraints
 
-[`roomlist-fix-v6`](https://github.com/Sancus/element-web/releases/tag/roomlist-fix-v6)
-published five artifacts:
+[`threads-v1`](https://github.com/Sancus/element-web/releases/tag/threads-v1) published five
+artifacts:
 
 - `Element-1.12.24-win.zip`
 - `Element-1.12.24-universal.dmg`
@@ -521,12 +522,23 @@ published five artifacts:
 - `element-desktop_1.12.24_amd64.deb`
 - `element-desktop-1.12.24.tar.gz`
 
-These are deliberately unsigned:
+macOS is signed with an Apple Developer ID and notarized, so the DMG opens without a Gatekeeper
+detour. The workflow does that in a macOS-only build step reading `CSC_LINK`, `CSC_PASSWORD`,
+`APPLE_ID`, `APPLE_ID_PASSWORD` and `APPLE_TEAM_ID` from repository secrets, and then verifies its
+own output with `codesign`, `spctl` and `xcrun stapler validate` against the mounted DMG rather than
+trusting the build to have done it. `electron-builder.ts` gates the behaviour on those variables:
+`notarize` follows `NOTARIZE`, `forceCodeSigning` follows `REQUIRE_CODE_SIGNING`, and the ad-hoc
+Darwin signature is only reset when neither `CSC_LINK` nor `APPLE_TEAM_ID` is set, so an unsigned
+local build still launches.
 
-- Windows shows a SmartScreen warning.
-- macOS needs its quarantine attribute removed before opening:
-  `xattr -dr com.apple.quarantine /Applications/Element.app`
-- Linux packages have no signature.
+Windows and Linux are unsigned: Windows shows a SmartScreen warning on first run, and Linux
+packages have no signature to check.
+
+This is easy to lose. The signing work is one commit (`Sign and notarize macOS desktop builds`)
+touching only the workflow and `electron-builder.ts`, and rebasing `release` has already dropped it
+once — `threads-v1` is not an ancestor of `release`, so the tag kept signing while the branch
+silently regressed to unsigned. After any rebase of `release`, diff the desktop CI against the last
+published tag before tagging again.
 
 Auto-update is disabled in all fork builds so an official Element update cannot overwrite
 the fixes. Use `--profile roomlist-fix` to keep the fork's local data separate from an
@@ -542,8 +554,8 @@ are labelled unofficial; consider a custom desktop variant before wider redistri
 2. Re-run the room-list unit/component and Playwright coverage after changing sort behavior.
 3. Confirm the workflow's `webapp.asar` verification still finds both fixes after build
    output changes.
-4. Keep the release workflow unsigned unless signing credentials and a deliberate signing
-   plan are supplied.
+4. Check the macOS signing step and its `electron-builder.ts` gates survived, by diffing the
+   desktop CI against the last published tag. A rebase has dropped that commit before.
 5. Leave the `release` job's tag gate in place. It is what lets a branch push build a
    testable candidate without publishing one.
 6. Land product work on `develop` (`git fetch origin && git rebase origin/develop develop`
