@@ -4,8 +4,9 @@ This checkout is the working tree for the Element Web performance fork:
 
 - Upstream: `https://github.com/element-hq/element-web.git` (`origin`)
 - Fork: `https://github.com/Sancus/element-web.git` (`fork`)
-- Current published build: [`threads-v2`](https://github.com/Sancus/element-web/releases/tag/threads-v2),
-  tagged at the tip of `release` and so an ancestor of it, unlike its predecessor.
+- Current published build: [`threads-v3`](https://github.com/Sancus/element-web/releases/tag/threads-v3),
+  tagged at the tip of `release` and so an ancestor of it. It adds read receipts to the thread cards;
+  `threads-v2` before it was the compact avatar fix.
 
 ### Branches
 
@@ -258,8 +259,8 @@ Watch the generated GitHub Actions run. A release is created only when the prepa
 all three platform builds succeed. Update the release notes in the workflow's `release` job
 first if the feature list has moved on; they are written inline there.
 
-Expect the tag build to take roughly twice as long as the candidate that preceded it, even on an
-identical commit — about 19 minutes against 11 for `threads-v2`. Actions scopes its cache by ref, so
+Expect the tag build to take longer than the candidate beside it, even on an identical commit — 19
+minutes against 11 for `threads-v2`, 16 against 11 for `threads-v3`. Actions scopes its cache by ref, so
 a tag cannot read what a branch push saved, and `hak` therefore recompiles sqlcipher and
 matrix-seshat from scratch on all three platforms rather than restoring `apps/desktop/.hak`. It is
 wasted time, not a fault, and the `cache-hit != 'true'` steps running is how you tell.
@@ -519,7 +520,7 @@ pages deploy` of a local build. Note the account uses a legacy global API key; t
 
 ## Current release and distribution constraints
 
-[`threads-v2`](https://github.com/Sancus/element-web/releases/tag/threads-v2) published five
+[`threads-v3`](https://github.com/Sancus/element-web/releases/tag/threads-v3) published five
 artifacts, about 1.0 GB in total:
 
 - `Element-1.12.24-win.zip`
