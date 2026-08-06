@@ -75,7 +75,10 @@ export function ReceiptAdapter({
     return (
         <ReadReceiptGroup
             readReceipts={readReceipts ?? []}
-            readReceiptMap={readReceiptMap ?? {}}
+            // Passed through rather than defaulted to an empty object, because the group treats an
+            // absent map as "nothing animates here" and drops the parent it would otherwise have to
+            // keep mounted on every event. Coercing it would make that state unreachable.
+            readReceiptMap={readReceiptMap}
             checkUnmounting={checkUnmounting}
             suppressAnimation={suppressAnimation}
             isTwelveHour={isTwelveHour}

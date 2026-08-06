@@ -19,7 +19,7 @@ import {
 
 import MatrixClientContext from "../../../../src/contexts/MatrixClientContext";
 import { stubClient } from "../../../test-utils";
-import { populateThread } from "../../../test-utils/threads";
+import { makeThreadEvent, populateThread } from "../../../test-utils/threads";
 import { useThreadsFeed } from "../../../../src/viewmodels/threads/useThreadsFeed";
 import { type ThreadsFeedFilters } from "../../../../src/viewmodels/threads/threadsFeed";
 
@@ -112,6 +112,62 @@ describe("useThreadsFeed", () => {
         await settle(DIRTY_THROTTLE_MS);
 
         expect(result.current.entries).toHaveLength(2);
+    });
+
+    it("hands back the same entry objects when a whole-account rescan finds nothing changed", async () => {
+        visibleRooms = [await makeRoomWithThread("!a:example.org")];
+
+        const { result } = renderFeed();
+        const before = result.current.entries[0];
+
+        jest.useFakeTimers();
+        act(() => {
+            client.emit(ClientEvent.Sync, "SYNCING" as never, null);
+        });
+        await settle(FULL_THROTTLE_MS);
+
+        // Referential equality is the point of the assertion, not an implementation detail: this
+        // pass runs off every sync, and fresh objects would break the memo on every mounted card,
+        // re-rendering the whole feed and every event tile in it several times a minute.
+        //
+        // Compared as a boolean because a failing `toBe` would try to diff two entries, and an
+        // entry holds a `Room`, which the serializer cannot walk.
+        expect(result.current.entries[0] === before).toBe(true);
+    });
+
+    it("replaces the entry for a room whose thread has moved on", async () => {
+        const room = await makeRoomWithThread("!a:example.org");
+        visibleRooms = [room];
+
+        const { result } = renderFeed();
+        const before = result.current.entries[0];
+
+        const thread = room.getThreads()[0];
+        await act(async () => {
+            await room.addLiveEvents(
+                [
+                    makeThreadEvent({
+                        room: room.roomId,
+                        user: OTHER,
+                        event: true,
+                        msg: "later",
+                        ts: 5000,
+                        rootEventId: thread.id,
+                        replyToEventId: thread.id,
+                    }),
+                ],
+                { addToState: false },
+            );
+        });
+
+        jest.useFakeTimers();
+        act(() => {
+            client.emit(ClientEvent.Sync, "SYNCING" as never, null);
+        });
+        await settle(FULL_THROTTLE_MS);
+
+        expect(result.current.entries[0] === before).toBe(false);
+        expect(result.current.entries[0].latestTs).toBe(5000);
     });
 
     it("drops a room that has left the visible set", async () => {

@@ -65,6 +65,16 @@ whole-account rescan on a much longer 5 s throttle. Rebuilding the entire feed o
 meant a `determineUnreadState` call per thread per room twice a second, which is real
 main-thread cost on a large account.
 
+**The whole-account pass keeps the entry objects it already had.** Those objects are what
+`ThreadCard`'s `memo` compares, so producing fresh ones every 5 s re-rendered every mounted card
+and every `EventTile` inside it, whether anything had happened or not — around 2 ms per card, and
+the render window only grows. `scanRooms()` therefore hands back the cached array for any room
+whose entries still say the same thing, decided field by field in `entriesEqual()`. The per-room
+dirty pass deliberately does not do this: it is the only thing that tells a card somebody else's
+read receipt has landed, and a receipt changes none of the fields an entry carries, so entries
+comparing equal is exactly the case where a card still has to re-render. Extending reuse to that
+path would freeze displayed receipts, and would need a per-card receipt subscription first.
+
 **Backfill cannot be driven by scrolling alone.** A feed that does not overflow its container
 never fires a scroll event, so if the first rooms yield few or no threads there is nothing to
 scroll and nothing to trigger the next batch. The result is the worst possible outcome on the
@@ -90,6 +100,23 @@ thread timeline, and raises no `RoomEvent.Timeline`. Reading only the timeline m
 the feed clears the composer and displays nothing — and a _failed_ send offers no retry or cancel,
 because the event carrying those affordances was never rendered. `getPendingReplies()` appends
 them the way `TimelinePanel` does, and the feed listens for `RoomEvent.LocalEchoUpdated`.
+
+**Cards read receipts off the thread, never the room.** `collectThreadReadReceipts()` mirrors
+`MessagePanel.getReadReceiptsForEvent`, dropping the reader's own receipt and ignored users, but
+takes them from the thread's receipt store. Falling back to the room's would report main-timeline
+reads as thread reads, for the same reason receipts are never _sent_ against a root. It is called
+on every render rather than memoized, because receipts change while the events they hang off stay
+put, so a cache keyed on the rendered events would serve stale ones; the work is a `Map` lookup
+per event.
+
+**Cards pass no `readReceiptMap`, and that is load-bearing.** The map exists so a receipt moving
+between events can animate out of its old position, which costs a positioned container mounted on
+every event whether it has receipts or not. Nothing animates across a feed of separate
+conversations, so the cards omit it — and `ReadReceiptGroup` treats its absence as licence to
+render the gutter alone rather than that container's four nodes. The gutter itself stays: group
+layout floats it right at a fixed width, which is what decides where a message's first line wraps,
+so dropping it would make receipt-less events wrap wider than receipted ones in the same card. The
+room timeline is untouched, since `MessagePanel` still passes a real map.
 
 **The card body carries `mx_ThreadView`.** Thread-mode `EventTile` styling — 175 lines of it — is
 scoped in `_EventTile.pcss` to that class, not to the rendering type the tiles are given. Without
@@ -203,6 +230,8 @@ problem for module-provided pages.
   plus `makeThreadRelation()`.
 - `apps/web/src/components/views/threads/useThreadCardRoomContext.ts` — the per-room
   `RoomContext` that `EventTile` needs outside a `RoomView`.
+- `apps/web/src/components/views/threads/threadReadReceipts.ts` — the receipts a card's tiles
+  display, thread-scoped.
 - `apps/web/src/components/views/spaces/threads/ThreadsNavButton.tsx` — space panel entry.
 - Routing: `PageTypes.ts`, `dispatcher/actions.ts`, `MatrixChat.tsx` (`viewThreads`,
   `showScreen`), `LoggedInView.tsx`.
@@ -214,6 +243,12 @@ problem for module-provided pages.
   expanded card removed the largest per-card cost, but a session that scrolls the whole feed
   still accumulates DOM. Virtualizing is the real fix and was rejected for the reasons above; a
   cheaper alternative is to unmount cards well above the viewport.
+- **Receipts on replies a card has not rendered are dropped.** A collapsed card shows the last two
+  replies, and an unexpanded thread may not be paginated at all, so a reader who got further than
+  the card shows appears nowhere on it. `MessagePanel` handles the equivalent case by folding
+  receipts from hidden events onto the last shown event, which is not wanted here: those events are
+  replies that exist and were left out, so folding would claim the reader had only got as far as
+  the card happens to display. Expanding the card shows them in the right place.
 - **Mention detection only sees loaded events.** `wasMentioned()` reads `m.mentions` from a
   thread's loaded timeline, so a mention in an unpaginated reply, or one from a client predating
   `m.mentions`, is missed. Such threads still reach the feed while they carry an unread
@@ -265,6 +300,9 @@ problem for module-provided pages.
    Centre suite listed any unread thread, which is why this was wrong at first.
 5. Validate against the ~1,000-room benchmark account before widening the backfill batch
    sizes or loosening the throttle.
+6. Do not give the per-room dirty rescan the entry reuse the whole-account pass has. Fresh entry
+   identity there is what refreshes displayed read receipts, and `useThreadsFeed-test.tsx` only
+   covers the whole-account side of that.
 
 ### Running the Playwright specs on this machine
 

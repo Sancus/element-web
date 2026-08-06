@@ -42,6 +42,7 @@ import { E2EStatus, shieldStatusForRoom } from "../../../utils/ShieldUtils";
 import { isClearableByReceipt, NotificationLevel } from "../../../stores/notifications/NotificationLevel";
 import { clearThreadNotification, threadReceiptTarget } from "../../../utils/notifications";
 import { type ThreadFeedEntry } from "../../../viewmodels/threads/threadsFeed";
+import { collectThreadReadReceipts } from "./threadReadReceipts";
 import { ThreadCardMenu } from "./ThreadCardMenu";
 import EventTile from "../rooms/EventTile";
 import MessageComposer from "../rooms/MessageComposer";
@@ -207,6 +208,16 @@ export const ThreadCard = memo(function ThreadCard({
     const previewReplies = replies.length > 0 ? replies : getBundledReplyPreview(thread);
     const hiddenReplyCount = Math.max(thread.length - Math.min(previewReplies.length, COLLAPSED_REPLY_COUNT), 0);
     const visibleReplies = repliesExpanded ? replies : previewReplies.slice(-COLLAPSED_REPLY_COUNT);
+
+    // Pending replies are left out: a local echo has no server event ID for anyone to have read,
+    // and once it is sent it arrives in `replies` like any other.
+    const receiptsByEvent = collectThreadReadReceipts(
+        client,
+        room,
+        thread,
+        thread.rootEvent ? [thread.rootEvent, ...visibleReplies] : visibleReplies,
+        roomContext.showReadReceipts,
+    );
 
     // Recomputed every render, as `ThreadView` does, so the reply fallback always points at
     // the newest reply rather than whichever one was latest when the card first mounted.
@@ -594,14 +605,21 @@ export const ThreadCard = memo(function ThreadCard({
         // compounded onto `.mx_ThreadPanel`, so they are not picked up here.
         <div className="mx_ThreadCard_body mx_ThreadView">
             {/* `EventTile` renders as an `li` in thread mode, so the events form a real
-                list, with the controls that sit between them as list items too. */}
+                list, with the controls that sit between them as list items too.
+
+                No `readReceiptMap` is passed. It exists so that a receipt moving from one event to
+                another can animate out of its old position, which costs a positioned parent kept
+                mounted on every event whether it has receipts or not. Nothing animates in a feed of
+                separate conversations, and leaving the map out is what lets `ReadReceiptGroup` drop
+                that parent. */}
             <ol className="mx_ThreadCard_events" id={repliesId}>
                 {thread.rootEvent && (
                     <EventTile
                         mxEvent={thread.rootEvent}
                         permalinkCreator={permalinkCreator}
                         layout={Layout.Group}
-                        showReadReceipts={false}
+                        showReadReceipts={roomContext.showReadReceipts}
+                        readReceipts={receiptsByEvent.get(thread.rootEvent.getId()!)}
                         showReactions={true}
                         alwaysShowTimestamps={true}
                         getRelationsForEvent={getRelationsForEvent}
@@ -646,7 +664,8 @@ export const ThreadCard = memo(function ThreadCard({
                         mxEvent={event}
                         permalinkCreator={permalinkCreator}
                         layout={Layout.Group}
-                        showReadReceipts={false}
+                        showReadReceipts={roomContext.showReadReceipts}
+                        readReceipts={receiptsByEvent.get(event.getId()!)}
                         showReactions={true}
                         alwaysShowTimestamps={true}
                         getRelationsForEvent={getRelationsForEvent}

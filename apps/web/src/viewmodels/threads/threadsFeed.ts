@@ -162,6 +162,38 @@ export function collectRoomEntries(room: Room, userId: string): ThreadFeedEntry[
     return entries;
 }
 
+/**
+ * Fields compared when deciding whether a room's entries still say the same thing.
+ *
+ * Identity comparison suits all of them: six are primitives, and `thread` and `room` are objects
+ * the SDK keeps exactly one of per thread and per room. Written as a record of every key of
+ * `ThreadFeedEntry` so that adding a field fails to compile until it is accounted for here —
+ * missing one would leave the feed showing a stale copy of whatever it describes.
+ */
+const COMPARED_ENTRY_FIELDS = {
+    threadId: true,
+    thread: true,
+    room: true,
+    latestTs: true,
+    level: true,
+    participated: true,
+    mentioned: true,
+    replied: true,
+} satisfies Record<keyof ThreadFeedEntry, true>;
+
+const ENTRY_FIELDS = Object.keys(COMPARED_ENTRY_FIELDS) as Array<keyof ThreadFeedEntry>;
+
+/**
+ * Whether two of a room's entry lists describe the same threads in the same state.
+ *
+ * Lets a rescan hand back the entry objects it already had, which is what keeps `ThreadCard`'s
+ * memo holding for rooms that have not changed.
+ */
+export function entriesEqual(a: readonly ThreadFeedEntry[], b: readonly ThreadFeedEntry[]): boolean {
+    if (a.length !== b.length) return false;
+    return a.every((entry, index) => ENTRY_FIELDS.every((field) => entry[field] === b[index][field]));
+}
+
 /** Whether a room's threads belong in the feed, in the same terms the room list uses. */
 export function isFeedRoom(room: Room): boolean {
     return isRoomVisible(room);

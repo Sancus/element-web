@@ -20,7 +20,9 @@ import {
 import MatrixClientContext from "../../../../../src/contexts/MatrixClientContext";
 import { SDKContext } from "../../../../../src/contexts/SDKContext";
 import { SDKContextClass } from "../../../../../src/contexts/SDKContextClass";
-import { mkMessage, mkReaction, stubClient } from "../../../../test-utils";
+import { mkEvent, mkMessage, mkReaction, stubClient } from "../../../../test-utils";
+import SettingsStore from "../../../../../src/settings/SettingsStore";
+import { SettingLevel } from "../../../../../src/settings/SettingLevel";
 import { populateThread } from "../../../../test-utils/threads";
 import { ThreadCard } from "../../../../../src/components/views/threads/ThreadCard";
 import { type ThreadFeedEntry } from "../../../../../src/viewmodels/threads/threadsFeed";
@@ -38,8 +40,23 @@ import DMRoomMap from "../../../../../src/utils/DMRoomMap";
 // focused on the card's own behaviour, which is deciding which dispatched actions are its own.
 jest.mock("../../../../../src/components/views/rooms/EventTile", () => ({
     __esModule: true,
-    default: ({ mxEvent, editState }: { mxEvent: MatrixEvent; editState?: unknown }) => (
-        <li data-testid={`tile-${mxEvent.getId()}`} data-editing={editState ? "yes" : "no"} />
+    default: ({
+        mxEvent,
+        editState,
+        showReadReceipts,
+        readReceipts,
+    }: {
+        mxEvent: MatrixEvent;
+        editState?: unknown;
+        showReadReceipts?: boolean;
+        readReceipts?: Array<{ userId: string }>;
+    }) => (
+        <li
+            data-testid={`tile-${mxEvent.getId()}`}
+            data-editing={editState ? "yes" : "no"}
+            data-show-receipts={showReadReceipts ? "yes" : "no"}
+            data-receipts={(readReceipts ?? []).map((receipt) => receipt.userId).join(" ")}
+        />
     ),
 }));
 
@@ -801,6 +818,51 @@ describe("ThreadCard", () => {
             });
 
             expect(sendReadReceipt).toHaveBeenCalled();
+        });
+    });
+
+    describe("read receipts", () => {
+        /** Delivers a threaded read receipt the way a sync does. */
+        function sendReceipt(room: Room, threadId: string, userId: string, event: MatrixEvent): void {
+            room.addReceipt(
+                mkEvent({
+                    event: true,
+                    type: "m.receipt",
+                    room: room.roomId,
+                    user: userId,
+                    content: {
+                        [event.getId()!]: { "m.read": { [userId]: { ts: 1, thread_id: threadId } } },
+                    },
+                }),
+            );
+        }
+
+        afterEach(async () => {
+            await SettingsStore.setValue("showReadReceipts", null, SettingLevel.DEVICE, true);
+        });
+
+        it("shows a receipt on the reply it was sent against", async () => {
+            const { entry, thread, reply } = await makeEntry("!a:example.org");
+            sendReceipt(entry.room, thread.id, OTHER, reply);
+
+            renderCards([{ entry, expanded: false }]);
+
+            const tile = screen.getByTestId(`tile-${reply.getId()}`);
+            expect(tile).toHaveAttribute("data-receipts", OTHER);
+            // The root was rendered too, and nobody has read up to only it.
+            expect(screen.getByTestId(`tile-${thread.id}`)).toHaveAttribute("data-receipts", "");
+        });
+
+        it("passes nothing to the tiles while the setting is off", async () => {
+            await SettingsStore.setValue("showReadReceipts", null, SettingLevel.DEVICE, false);
+            const { entry, thread, reply } = await makeEntry("!a:example.org");
+            sendReceipt(entry.room, thread.id, OTHER, reply);
+
+            renderCards([{ entry, expanded: false }]);
+
+            const tile = screen.getByTestId(`tile-${reply.getId()}`);
+            expect(tile).toHaveAttribute("data-show-receipts", "no");
+            expect(tile).toHaveAttribute("data-receipts", "");
         });
     });
 

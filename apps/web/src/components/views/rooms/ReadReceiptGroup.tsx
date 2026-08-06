@@ -32,7 +32,8 @@ const READ_AVATAR_OFFSET = 10;
 
 interface Props {
     readReceipts: IReadReceiptProps[];
-    readReceiptMap: { [userId: string]: IReadReceiptPosition };
+    /** Positions receipts animate out of. Omitted by callers that do not animate them. */
+    readReceiptMap?: { [userId: string]: IReadReceiptPosition };
     checkUnmounting?: () => boolean;
     suppressAnimation: boolean;
     isTwelveHour?: boolean;
@@ -79,6 +80,13 @@ export function ReadReceiptGroup({
 
     // return early if there are no read receipts
     if (readReceipts.length === 0) {
+        // Nothing animates without a map of positions to animate out of, so there is no container
+        // to keep mounted and the event keeps only its gutter. That stays as one element rather than
+        // nothing at all: group layout floats it right at a fixed width, which is what decides where
+        // the first line of a message wraps, so removing it would let events without receipts run
+        // wider than the ones with them.
+        if (!readReceiptMap) return <div className="mx_EventTile_msgOption" />;
+
         // We currently must include `mx_ReadReceiptGroup_container` in
         // the DOM of all events, as it is the positioned parent of the
         // animated read receipts. We can't let it unmount when a receipt

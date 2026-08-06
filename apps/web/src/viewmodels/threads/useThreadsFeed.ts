@@ -22,6 +22,7 @@ import { useSettingValue } from "../../hooks/useSettings";
 import { useEventEmitter } from "../../hooks/useEventEmitter";
 import {
     collectRoomEntries,
+    entriesEqual,
     filterEntries,
     getFeedRooms,
     isFeedRoom,
@@ -116,22 +117,44 @@ export function useThreadsFeed(filters: ThreadsFeedFilters, keepThreadId?: strin
         setAllEntries(sortEntries([...entriesByRoom.current.values()].flat()));
     }, []);
 
-    /** Rebuilds the cached entries for the given rooms, forgetting rooms with none. */
+    /**
+     * Rebuilds the cached entries for the given rooms, forgetting rooms with none.
+     *
+     * `reuseFrom` is consulted for entries to keep rather than replace: a room whose entries come
+     * out saying the same thing keeps the objects it already had, so `ThreadCard`'s memo holds and
+     * neither the card nor its event tiles re-render. Only the whole-account pass passes it. The
+     * dirty pass must not, because it is the sole reason a card re-renders when somebody else's
+     * read receipt lands — a receipt changes none of the fields an entry carries, so entries that
+     * compare equal are exactly the case where fresh identity is still needed.
+     */
     const scanRooms = useCallback(
-        (rooms: Room[]) => {
+        (rooms: Room[], reuseFrom?: ReadonlyMap<string, ThreadFeedEntry[]>) => {
             const userId = client.getUserId();
             if (!userId) return;
             for (const room of rooms) {
                 const entries = collectRoomEntries(room, userId);
-                if (entries.length > 0) entriesByRoom.current.set(room.roomId, entries);
-                else entriesByRoom.current.delete(room.roomId);
+                if (entries.length === 0) {
+                    entriesByRoom.current.delete(room.roomId);
+                    continue;
+                }
+
+                const previous = reuseFrom?.get(room.roomId);
+                entriesByRoom.current.set(
+                    room.roomId,
+                    previous && entriesEqual(previous, entries) ? previous : entries,
+                );
             }
         },
         [client],
     );
 
     const rescanAll = useCallback(() => {
-        // Rebuilt from scratch rather than merged, so rooms that have been left or hidden drop out.
+        // Built into a fresh map rather than merged into the old one, so rooms that have been left
+        // or hidden drop out. The entries themselves are carried over where a room still says the
+        // same thing: this runs off every sync, and rebuilding every entry object would break the
+        // memo on every mounted card several times a minute, re-rendering the whole feed and each
+        // card's event tiles with it.
+        const previousEntries = entriesByRoom.current;
         entriesByRoom.current = new Map();
         dirtyRooms.current.clear();
 
@@ -141,7 +164,7 @@ export function useThreadsFeed(filters: ThreadsFeedFilters, keepThreadId?: strin
             roomIds.size !== visibleRoomIds.current.size || [...roomIds].some((id) => !visibleRoomIds.current.has(id));
         visibleRoomIds.current = roomIds;
 
-        scanRooms(rooms);
+        scanRooms(rooms, previousEntries);
         publish();
         setInitialised(true);
         if (changed) setFeedRooms(orderRoomsForBackfill(rooms));

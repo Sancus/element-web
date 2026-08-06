@@ -14,6 +14,7 @@ import { mocked } from "jest-mock";
 
 import {
     determineAvatarPosition,
+    ReadReceiptGroup,
     ReadReceiptPerson,
     readReceiptTooltip,
 } from "../../../../../src/components/views/rooms/ReadReceiptGroup";
@@ -85,6 +86,27 @@ describe("ReadReceiptGroup", () => {
             expect(determineAvatarPosition(3, 4)).toEqual({ hidden: false, position: 3 });
             expect(determineAvatarPosition(4, 4)).toEqual({ hidden: true, position: 0 });
             expect(determineAvatarPosition(5, 4)).toEqual({ hidden: true, position: 0 });
+        });
+    });
+
+    describe("with no receipts to show", () => {
+        it("renders the gutter alone when no positions to animate out of were given", () => {
+            const { container } = render(<ReadReceiptGroup readReceipts={[]} suppressAnimation={true} />);
+
+            // Group layout floats the gutter right at a fixed width, which decides where the first
+            // line of a message wraps, so it stays even with nothing in it. What it does not need is
+            // the container that only exists to anchor an animation.
+            const gutter = container.querySelector(".mx_EventTile_msgOption");
+            expect(gutter).toBeInTheDocument();
+            expect(gutter!.childElementCount).toBe(0);
+        });
+
+        it("keeps the animation container when positions were given", () => {
+            const { container } = render(
+                <ReadReceiptGroup readReceipts={[]} readReceiptMap={{}} suppressAnimation={true} />,
+            );
+
+            expect(container.querySelector(".mx_ReadReceiptGroup_container")).toBeInTheDocument();
         });
     });
 

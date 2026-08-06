@@ -23,6 +23,7 @@ import * as RoomNotifs from "../../../../src/RoomNotifs";
 import {
     applyHeldOrder,
     collectRoomEntries,
+    entriesEqual,
     filterEntries,
     hasParticipated,
     hasReplied,
@@ -424,6 +425,40 @@ describe("threadsFeed", () => {
             sortEntries(entries);
 
             expect(entries.map((e) => e.latestTs)).toEqual([100, 300]);
+        });
+    });
+
+    describe("entriesEqual", () => {
+        const entry = (overrides: Partial<ThreadFeedEntry> = {}): ThreadFeedEntry =>
+            ({
+                threadId: "$a",
+                latestTs: 100,
+                level: NotificationLevel.None,
+                participated: true,
+                mentioned: false,
+                replied: true,
+                ...overrides,
+            }) as ThreadFeedEntry;
+
+        it("matches lists describing the same threads in the same state", () => {
+            expect(entriesEqual([entry()], [entry()])).toBe(true);
+        });
+
+        it("does not match once any compared field has moved on", () => {
+            expect(entriesEqual([entry()], [entry({ latestTs: 200 })])).toBe(false);
+            expect(entriesEqual([entry()], [entry({ level: NotificationLevel.Notification })])).toBe(false);
+            expect(entriesEqual([entry()], [entry({ mentioned: true })])).toBe(false);
+            expect(entriesEqual([entry()], [entry({ replied: false })])).toBe(false);
+        });
+
+        it("does not match lists of different lengths", () => {
+            expect(entriesEqual([entry()], [entry(), entry({ threadId: "$b" })])).toBe(false);
+        });
+
+        it("does not match when the thread object itself has been replaced", () => {
+            // The SDK keeps one thread object per thread, so a different one means the card is
+            // pointing at something that has been rebuilt underneath it.
+            expect(entriesEqual([entry({ thread: {} as never })], [entry({ thread: {} as never })])).toBe(false);
         });
     });
 
