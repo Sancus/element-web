@@ -401,6 +401,7 @@ jobs:
                   - **Filters** Unread, Mentions and Never Replied, which combine: Unread plus Mentions means unread mentions. Nothing selected means everything.
                   - **Waiting on you** marks threads where somebody named you and you have not answered. Replying or reacting clears it.
                   - **Marking read** per thread from the card's ... menu, or all at once from the header. Reading a thread does not mark the rest of the room read.
+                  - **Read receipts** each message in a card shows who has read it, as it would in a room, and the grouped avatars open a "Seen by" list. A receipt stays on the reply it was sent for, so one belonging to a reply a folded card leaves out appears when you unfold it.
                   - **Progressive loading** threads already in memory appear instantly, and the rest are fetched in the background as you scroll rather than all at once.
 
                   ![The threads page, with one card unfolded](https://raw.githubusercontent.com/__REPO__/__TAG__/.github/release-assets/threads-view.png)
